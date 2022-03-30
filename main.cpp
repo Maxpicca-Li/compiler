@@ -72,7 +72,7 @@ void getsym(){
     // getch(ch); // 获取首字符
     if(ch=='\0') return; // 首字符为空
     string srcStr;
-    if(isalpha(ch)){ // 关键字TK或标识符idenfr
+    if(isalpha(ch) || ch=='_'){ // 关键字TK或标识符idenfr
         // 需要记录原始字符串
         while(isalnum(ch) || ch=='_'){
             srcStr+=ch;
