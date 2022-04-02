@@ -1,13 +1,13 @@
 #include<bits/stdc++.h>
 #include "info.hpp"
-#define SUBMIT 1
+// #define SUBMIT 1
 using namespace std;
 
 #ifdef SUBMIT
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
 #else
-    const string inFile = "./data/1/testfile10.txt";
+    const string inFile = "./data/1/testfile8.txt";
     const string outFile = "output_lyq.txt";
 #endif
 
@@ -21,11 +21,14 @@ inline void getch(char& ch){
     if(ch=='\n') currLineNumber++;
 }
 
-void clearAll(){
+inline void clearAll(){
     ifp.close();
     ofp.close();
 }
 
+inline void roll_back(long n){ // 回退几个位置
+    ifp.seekg(n,ios::cur);
+}
 
 void judge(string& srcStr, int caseCode=0){
     // 根据getsym的结果，进行判断
@@ -61,177 +64,144 @@ void judge(string& srcStr, int caseCode=0){
         break;
     }
     // 输出结果
-    // cout << cateCodeStr << " " << srcStr << endl;
     ofp << cateCodeStr << " " << srcStr << endl;
 }
 
 
 /* TODO 判断下一个可以规约的串 */
 void getsym(){
-    // ch当前就是指向下一个字符吧
-    // getch(ch); // 获取首字符
+    getch(ch); // 获取首字符
     if(ch=='\0') return; // 首字符为空
     string srcStr;
     if(isalpha(ch) || ch=='_'){ // 关键字TK或标识符idenfr
-        // 需要记录原始字符串
-        while(isalnum(ch) || ch=='_'){
+        while(isalnum(ch) || ch=='_'){ // 需要记录原始字符串
             srcStr+=ch;
             getch(ch);
         }
         judge(srcStr,specialStrCode);
-    }else if(isdigit(ch)){ // 数字
-        // intcon
+        roll_back(-1);// 回退一个指针
+    }else if(isdigit(ch)){ // intcon
         while(isdigit(ch)){
             srcStr+=ch;
             getch(ch);
         }
         judge(srcStr, numberCode);
+        roll_back(-1);
     }else if(ch=='='){ // 赋值
-        // 可能的逻辑运算 ==
-        while(ch=='='){
+        while(ch=='='){ // 可能的逻辑运算 ==
             srcStr+=ch;
             getch(ch);
         }
         judge(srcStr, specialStrCode);
+        roll_back(-1);
     }else if(ch=='+'){ // 数字运算，单独写，为了后续方便运算标识
         srcStr+=ch;
         judge(srcStr, specialStrCode);
-        getch(ch); // 记得读取下一个字符
     }else if(ch=='-'){
         srcStr+=ch;
         judge(srcStr, specialStrCode);
-        getch(ch); // 记得读取下一个字符
     }else if(ch=='*'){
         srcStr+=ch;
         judge(srcStr, specialStrCode);
-        getch(ch); // 记得读取下一个字符
     }else if(ch=='/'){
         srcStr+=ch;
         judge(srcStr, specialStrCode);
-        getch(ch); // 记得读取下一个字符
     }else if(ch=='!'){ // 逻辑运算
-        // !=
         srcStr+=ch;
         getch(ch);
-        if(ch != '='){
+        if(ch != '='){  // !=
             error(currLineNumber,illegalOp);
+            roll_back(-1);
             return;
         }else{
             srcStr+=ch;
             judge(srcStr, specialStrCode);
-            // 读取
-            getch(ch);
         }
     }else if(ch=='<'){
-        // <=
         srcStr+=ch;
-        getch(ch); // 记得读取下一个字符
-        if(ch == '='){
+        getch(ch);
+        if(ch == '='){  // <=
             srcStr+=ch;
-            getch(ch); // 记得读取下一个字符
+        }else{
+            roll_back(-1);
         }
         judge(srcStr, specialStrCode);
     }else if(ch=='>'){
-        // <=
         srcStr+=ch;
-        getch(ch); // 记得读取下一个字符
-        if(ch == '='){
+        getch(ch);
+        if(ch == '='){ // <=
             srcStr+=ch;
-            getch(ch); // 记得读取下一个字符
+        }else{
+            roll_back(-1);
         }
         judge(srcStr, specialStrCode);
     }else if(ch==';' || ch==',' || ch==':'){ // 标点符号
         srcStr+=ch;
         judge(srcStr, specialStrCode);
-        getch(ch); // 记得读取下一个字符
-    }else if(ch=='\"'){ // 成对的处理
+    }else if(ch=='\"'){ // strcon
         // 如果是冒号，里面是一个完整的字符换
-        // strcon
-        // 处理字符串
-        string srcStr;
         char lastch = ch;
-        while(true){
+        while(true){  // ", 成对处理
             getch(ch);
             if(lastch!='\\' && ch=='\"') {
-                getch(ch); // 读取下一个字符
                 break;
             }
             srcStr+=ch;
             lastch = ch;
         }
         judge(srcStr,commonStrCode);
-    }else if(ch=='\''){
-        // 如果是冒号，里面是一个完整的字符,且只有一个字符
-        // charcon
-        getch(ch);
+    }else if(ch=='\''){ // charcon
+        getch(ch); 
         srcStr += ch;
-        getch(ch); // 记得读取下一个字符
-        if(ch!='\''){    
+        getch(ch);
+        if(ch!='\''){  // 判断：一个完整的字符,且只有一个字符
             error(currLineNumber,illegalComma);
+            roll_back(-1);
             return;
-        }else{
-            getch(ch); // 记得读取下一个字符    
         }
         judge(srcStr,charCode);
-    }else if(ch=='('){ // 括号
-        // 递归调用gensym，直到反向括号出现
+    }else if(ch=='('){ // 小括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        getch(ch);
-        // 递归抵用
-        while(ch!=')' && ch!='\0') {
-            getsym();
+        while(ch!=')' && ch!='\0') { // 递归调用gensym，直到反向括号出现
+            getsym(); // FIXME: 对于大的程序不友好，容易卡栈空间
         }
-        // 此时ch指向下一个
         if(ch==')'){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-            getch(ch);
         }
         else error(currLineNumber,mismatchLittle);
-    }else if(ch=='{'){ // 括号
-        // 递归调用gensym，直到反向括号出现
+    }else if(ch=='{'){ // 大括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        getch(ch);
-        // 递归抵用
-        while(ch!='}' && ch!='\0') {
+        while(ch!='}' && ch!='\0') { // 递归调用gensym，直到反向括号出现
             getsym();
         }
         if(ch=='}'){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-            getch(ch);
         }
         else error(currLineNumber,mismatchBig);
-    }else if(ch=='['){ // 括号
-        // 递归调用gensym，直到反向括号出现
+    }else if(ch=='['){ // 中括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        getch(ch);
-        // 递归抵用
-        while(ch!=']' && ch!='\0') {
+        while(ch!=']' && ch!='\0') {  // 递归调用gensym，直到反向括号出现
             getsym();
         }
         if(ch==']'){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-            getch(ch);
         }
         else error(currLineNumber,mismatchMiddle);
-    }else{
-        getch(ch);
     }
 }
 
 int main(){
-    // 从头到尾判断
-    ifp.open(inFile);
+    ifp.open(inFile, ios::binary);  // 因为涉及到字节回退，这里最好是binary打开
     ofp.open(outFile);
-    getch(ch);
     while(!ifp.eof()){
         getsym();
     }
