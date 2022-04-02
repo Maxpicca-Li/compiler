@@ -7,7 +7,8 @@ using namespace std;
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
 #else
-    const string inFile = "./data/1/testfile8.txt";
+    // const string inFile = "./data/1/testfile8.txt";
+    const string inFile = "./testfile_lyq.txt";
     const string outFile = "output_lyq.txt";
 #endif
 
@@ -30,10 +31,8 @@ inline void roll_back(long n){ // 回退几个位置
     ifp.seekg(n,ios::cur);
 }
 
+/* 根据getsym的结果，进行判断 */
 void judge(string& srcStr, int caseCode=0){
-    // 根据getsym的结果，进行判断
-    // 可能的结果：标识符/关键字
-    // 需要全转为小写
     string copyStr(srcStr);
     for(char& ch:copyStr){
         ch = tolower(ch);
@@ -41,21 +40,17 @@ void judge(string& srcStr, int caseCode=0){
     string cateCodeStr;
     switch (caseCode){
     case specialStrCode:
-        // 是否在已知关键字里
-        if(specialCateCodeMap.find(copyStr)!=specialCateCodeMap.end()){
-            // 输出结果
+        if(specialCateCodeMap.find(copyStr)!=specialCateCodeMap.end()){ // 在已知关键字里
             cateCodeStr = specialCateCodeMap[copyStr];
         }else{
-            // 不在，则为标识符
-            cateCodeStr = IDENFR;
+            cateCodeStr = IDENFR; // 不在，则为标识符
         }
         break;
     case commonStrCode:
         cateCodeStr = STRCON;
         break;
     case numberCode:
-        // 计算number,可以单独写个函数
-        cateCodeStr = INTCON;
+        cateCodeStr = INTCON; // 如果要计算number,可以单独写个函数
         break;
     case charCode:
         cateCodeStr = CHARCON;
@@ -63,12 +58,11 @@ void judge(string& srcStr, int caseCode=0){
     default:
         break;
     }
-    // 输出结果
-    ofp << cateCodeStr << " " << srcStr << endl;
+    ofp << cateCodeStr << " " << srcStr << endl; // 输出结果
 }
 
 
-/* TODO 判断下一个可以规约的串 */
+/* 判断下一个可以规约的串 */
 void getsym(){
     getch(ch); // 获取首字符
     if(ch=='\0') return; // 首字符为空
@@ -139,11 +133,14 @@ void getsym(){
         srcStr+=ch;
         judge(srcStr, specialStrCode);
     }else if(ch=='\"'){ // strcon
-        // 如果是冒号，里面是一个完整的字符换
+        int save_currLineNumber = currLineNumber;
         char lastch = ch;
         while(true){  // ", 成对处理
             getch(ch);
             if(lastch!='\\' && ch=='\"') {
+                break;
+            }else if(ch=='\n'){
+                error(save_currLineNumber, illegalComma);
                 break;
             }
             srcStr+=ch;
@@ -151,7 +148,12 @@ void getsym(){
         }
         judge(srcStr,commonStrCode);
     }else if(ch=='\''){ // charcon
-        getch(ch); 
+        if(ch=='\\'){ // 转义字符
+            getch(ch);
+            if(isdigit(ch)) ch=ch-'0';
+        }else{
+            getch(ch); 
+        }
         srcStr += ch;
         getch(ch);
         if(ch!='\''){  // 判断：一个完整的字符,且只有一个字符
@@ -161,18 +163,22 @@ void getsym(){
         }
         judge(srcStr,charCode);
     }else if(ch=='('){ // 小括号
+        int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        while(ch!=')' && ch!='\0') { // 递归调用gensym，直到反向括号出现
+        while(ch!=')' && ch!='\0' && ch!='}') { // 递归调用gensym，直到反向括号出现
             getsym(); // FIXME: 对于大的程序不友好，容易卡栈空间
         }
         if(ch==')'){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-        }
-        else error(currLineNumber,mismatchLittle);
+        }else if(ch=='}') { // 程序段的结束
+            error(save_currLineNumber,mismatchLittle);
+            return; 
+        }else error(save_currLineNumber,mismatchLittle);
     }else if(ch=='{'){ // 大括号
+        int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
         while(ch!='}' && ch!='\0') { // 递归调用gensym，直到反向括号出现
@@ -182,20 +188,22 @@ void getsym(){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-        }
-        else error(currLineNumber,mismatchBig);
+        }else error(save_currLineNumber,mismatchBig);
     }else if(ch=='['){ // 中括号
+        int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        while(ch!=']' && ch!='\0') {  // 递归调用gensym，直到反向括号出现
+        while(ch!=']' && ch!='\0' && ch!=']') {  // 递归调用gensym，直到反向括号出现
             getsym();
         }
         if(ch==']'){
             string srcStr;
             srcStr+=ch;
             judge(srcStr,specialStrCode);
-        }
-        else error(currLineNumber,mismatchMiddle);
+        }else if(ch=='}') { // 程序段的结束
+            error(save_currLineNumber,mismatchLittle);
+            return; 
+        }else error(save_currLineNumber,mismatchMiddle);
     }
 }
 

@@ -23,10 +23,6 @@ const string illegalComma = "非法引号";
 const string mismatchLittle = "不匹配(";
 const string mismatchBig = "不匹配{";
 const string mismatchMiddle = "不匹配[";
-// if(num>INT_MAX) {
-//                 error(currLineNumber,illegalInt);
-//                 break;
-//             }
 
 map<string, string> specialCateCodeMap = {
     // 关键字
