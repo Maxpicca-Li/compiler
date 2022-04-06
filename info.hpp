@@ -9,7 +9,7 @@ const string STRCON = "STRCON";
 
 int currLineNumber = 1;
 int errorCnt;
-stack<char> leftBrack;
+stack< pair<char,int> > leftBrack_LN; // 匹配号，行号
 
 const int specialStrCode = 0;
 const int commonStrCode = 1;
@@ -25,8 +25,11 @@ const string mismatchMiddle = "不匹配[";
 
 map<char, string> mismatchError = {
     {'(',"不匹配("},
-    {'[',"不匹配]"},
+    {')',"不匹配)"},
+    {'[',"不匹配["},
+    {']',"不匹配]"},
     {'{',"不匹配{"},
+    {'}',"不匹配}"},
     {'\'',"不匹配单引号"},
     {'\"',"不匹配双引号"},
 };

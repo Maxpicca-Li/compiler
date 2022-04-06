@@ -1,13 +1,14 @@
 #include<bits/stdc++.h>
 #include "info.hpp"
-#define SUBMIT 1
+// #define SUBMIT 1
 using namespace std;
 
 #ifdef SUBMIT
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
 #else
-    const string inFile = "./data/1/testfile8.txt";
+    // const string inFile = "./data/1/testfile8.txt";
+    const string inFile = "./testerror.txt";
     const string outFile = "output_lyq.txt";
 #endif
 
@@ -164,36 +165,43 @@ void getsym(){
     }else if(ch=='('){ // 小括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        leftBrack.push(ch);
+        leftBrack_LN.push({ch,currLineNumber});
     }else if(ch=='{'){ // 大括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        leftBrack.push(ch);
+        leftBrack_LN.push({ch,currLineNumber});
     }else if(ch=='['){ // 中括号
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        leftBrack.push(ch);
+        leftBrack_LN.push({ch,currLineNumber});
     }else if(ch==')'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        char nearBrack = leftBrack.top();  // 匹配判断
-        if(nearBrack!='(') error(save_currLineNumber,mismatchError[nearBrack]);
-        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
+        char nearBrack = leftBrack_LN.top().first;  // 匹配判断
+        if(nearBrack!='(') error(save_currLineNumber,mismatchError[ch]);
+        else leftBrack_LN.pop(); // FIXME: pop的位置不知道对不对            
     }else if(ch==']'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        char nearBrack = leftBrack.top();  // 匹配判断
-        if(nearBrack!='[') error(save_currLineNumber,mismatchError[nearBrack]);
-        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
+        char nearBrack = leftBrack_LN.top().first;  // 匹配判断
+        if(nearBrack!='[') error(save_currLineNumber,mismatchError[ch]);
+        else leftBrack_LN.pop(); // FIXME: pop的位置不知道对不对            
     }else if(ch=='}'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        char nearBrack = leftBrack.top();  // 匹配判断
-        if(nearBrack!='{') error(save_currLineNumber,mismatchError[nearBrack]);
-        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
+        // 一段的结束
+        while(!leftBrack_LN.empty() && leftBrack_LN.top().first!='{') {
+            error(leftBrack_LN.top().second, mismatchError[leftBrack_LN.top().first]);
+            leftBrack_LN.pop();
+        }
+        if(leftBrack_LN.empty() || leftBrack_LN.top().first!='{'){
+            error(save_currLineNumber,mismatchError[ch]);
+        }else{
+            leftBrack_LN.pop();
+        }
     }
 }
 
