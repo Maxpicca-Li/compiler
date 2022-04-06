@@ -8,9 +8,8 @@ const string CHARCON = "CHARCON";
 const string STRCON = "STRCON";
 
 int currLineNumber = 1;
-int errorLineNumber;
-int errorCode;
 int errorCnt;
+stack<char> leftBrack;
 
 const int specialStrCode = 0;
 const int commonStrCode = 1;
@@ -23,6 +22,14 @@ const string illegalComma = "非法引号";
 const string mismatchLittle = "不匹配(";
 const string mismatchBig = "不匹配{";
 const string mismatchMiddle = "不匹配[";
+
+map<char, string> mismatchError = {
+    {'(',"不匹配("},
+    {'[',"不匹配]"},
+    {'{',"不匹配{"},
+    {'\'',"不匹配单引号"},
+    {'\"',"不匹配双引号"},
+};
 
 map<string, string> specialCateCodeMap = {
     // 关键字

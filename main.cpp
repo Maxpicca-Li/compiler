@@ -1,14 +1,13 @@
 #include<bits/stdc++.h>
 #include "info.hpp"
-// #define SUBMIT 1
+#define SUBMIT 1
 using namespace std;
 
 #ifdef SUBMIT
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
 #else
-    // const string inFile = "./data/1/testfile8.txt";
-    const string inFile = "./testfile_lyq.txt";
+    const string inFile = "./data/1/testfile8.txt";
     const string outFile = "output_lyq.txt";
 #endif
 
@@ -163,47 +162,38 @@ void getsym(){
         }
         judge(srcStr,charCode);
     }else if(ch=='('){ // 小括号
-        int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        while(ch!=')' && ch!='\0' && ch!='}') { // 递归调用gensym，直到反向括号出现
-            getsym(); // FIXME: 对于大的程序不友好，容易卡栈空间
-        }
-        if(ch==')'){
-            string srcStr;
-            srcStr+=ch;
-            judge(srcStr,specialStrCode);
-        }else if(ch=='}') { // 程序段的结束
-            error(save_currLineNumber,mismatchLittle);
-            return; 
-        }else error(save_currLineNumber,mismatchLittle);
+        leftBrack.push(ch);
     }else if(ch=='{'){ // 大括号
-        int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        while(ch!='}' && ch!='\0') { // 递归调用gensym，直到反向括号出现
-            getsym();
-        }
-        if(ch=='}'){
-            string srcStr;
-            srcStr+=ch;
-            judge(srcStr,specialStrCode);
-        }else error(save_currLineNumber,mismatchBig);
+        leftBrack.push(ch);
     }else if(ch=='['){ // 中括号
+        srcStr+=ch;
+        judge(srcStr,specialStrCode);
+        leftBrack.push(ch);
+    }else if(ch==')'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
         judge(srcStr,specialStrCode);
-        while(ch!=']' && ch!='\0' && ch!=']') {  // 递归调用gensym，直到反向括号出现
-            getsym();
-        }
-        if(ch==']'){
-            string srcStr;
-            srcStr+=ch;
-            judge(srcStr,specialStrCode);
-        }else if(ch=='}') { // 程序段的结束
-            error(save_currLineNumber,mismatchLittle);
-            return; 
-        }else error(save_currLineNumber,mismatchMiddle);
+        char nearBrack = leftBrack.top();  // 匹配判断
+        if(nearBrack!='(') error(save_currLineNumber,mismatchError[nearBrack]);
+        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
+    }else if(ch==']'){
+        int save_currLineNumber = currLineNumber;
+        srcStr+=ch;
+        judge(srcStr,specialStrCode);
+        char nearBrack = leftBrack.top();  // 匹配判断
+        if(nearBrack!='[') error(save_currLineNumber,mismatchError[nearBrack]);
+        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
+    }else if(ch=='}'){
+        int save_currLineNumber = currLineNumber;
+        srcStr+=ch;
+        judge(srcStr,specialStrCode);
+        char nearBrack = leftBrack.top();  // 匹配判断
+        if(nearBrack!='{') error(save_currLineNumber,mismatchError[nearBrack]);
+        else leftBrack.pop(); // FIXME: pop的位置不知道对不对            
     }
 }
 

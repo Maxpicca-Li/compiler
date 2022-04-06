@@ -37,8 +37,10 @@ build/
 .vscode/
 
 # self define
+*.sh
 *.txt
 *.zip
 test*.*
 data/
 output/
+submit/
