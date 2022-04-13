@@ -1,9 +1,10 @@
 #include<bits/stdc++.h>
 #include "info.hpp"
+#include "error.hpp"
 #include "util.hpp"
-#define SUBMIT 1
 using namespace std;
 
+#define SUBMIT 1
 #ifdef SUBMIT
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
@@ -21,7 +22,11 @@ vector<string> tokens;
 inline void getch(char& ch){
     ifp.read((char*)&ch,1);
     if(ifp.eof()) ch='\0'; // EOF的判断 
-    if(ch=='\n') currLineNumber++;
+    currCol++;
+    if(ch=='\n') {
+        currCol=0;
+        currLineNumber++;
+    }
 }
 
 inline void clearAll(){
@@ -210,7 +215,9 @@ void getsym(){
     }
 }
 
+// int next(){
 
+// }
 void getParser(){
     // 逐步对token进行分析，感觉可以依次读入那个文件夹
 }

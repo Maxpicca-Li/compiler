@@ -36,12 +36,11 @@ bin/
 build/
 .vscode/
 
-# # self define
-# file
+# self define: file
 *.sh
 *.txt
 test*.*
-# dir
+# self define: dir
 data/
 output/
 doc/
