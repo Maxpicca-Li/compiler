@@ -36,11 +36,14 @@ bin/
 build/
 .vscode/
 
-# self define
+# # self define
+# file
 *.sh
 *.txt
-*.zip
 test*.*
+# dir
 data/
 output/
+doc/
+ref/
 submit/

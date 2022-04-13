@@ -1,6 +1,7 @@
 #include<bits/stdc++.h>
 #include "info.hpp"
-// #define SUBMIT 1
+#include "util.hpp"
+#define SUBMIT 1
 using namespace std;
 
 #ifdef SUBMIT
@@ -15,6 +16,7 @@ using namespace std;
 ifstream ifp;
 ofstream ofp;
 char ch;
+vector<string> tokens;
 
 inline void getch(char& ch){
     ifp.read((char*)&ch,1);
@@ -32,7 +34,7 @@ inline void roll_back(long n){ // 回退几个位置
 }
 
 /* 根据getsym的结果，进行判断 */
-void judge(string& srcStr, int caseCode=0){
+void genToken(string& srcStr, int caseCode=0){
     string copyStr(srcStr);
     for(char& ch:copyStr){
         ch = tolower(ch);
@@ -59,6 +61,9 @@ void judge(string& srcStr, int caseCode=0){
         break;
     }
     ofp << cateCodeStr << " " << srcStr << endl; // 输出结果
+    
+    // 一个token的输入 ==> 如何就地进行语法分析 ==> 巨大的状态表和分析表
+    tokens.push_back(cateCodeStr);
 }
 
 
@@ -72,34 +77,34 @@ void getsym(){
             srcStr+=ch;
             getch(ch);
         }
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         roll_back(-1);// 回退一个指针
     }else if(isdigit(ch)){ // intcon
         while(isdigit(ch)){
             srcStr+=ch;
             getch(ch);
         }
-        judge(srcStr, numberCode);
+        genToken(srcStr, numberCode);
         roll_back(-1);
     }else if(ch=='='){ // 赋值
         while(ch=='='){ // 可能的逻辑运算 ==
             srcStr+=ch;
             getch(ch);
         }
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
         roll_back(-1);
     }else if(ch=='+'){ // 数字运算，单独写，为了后续方便运算标识
         srcStr+=ch;
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='-'){
         srcStr+=ch;
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='*'){
         srcStr+=ch;
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='/'){
         srcStr+=ch;
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='!'){ // 逻辑运算
         srcStr+=ch;
         getch(ch);
@@ -109,7 +114,7 @@ void getsym(){
             return;
         }else{
             srcStr+=ch;
-            judge(srcStr, specialStrCode);
+            genToken(srcStr, specialStrCode);
         }
     }else if(ch=='<'){
         srcStr+=ch;
@@ -119,7 +124,7 @@ void getsym(){
         }else{
             roll_back(-1);
         }
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='>'){
         srcStr+=ch;
         getch(ch);
@@ -128,10 +133,10 @@ void getsym(){
         }else{
             roll_back(-1);
         }
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch==';' || ch==',' || ch==':'){ // 标点符号
         srcStr+=ch;
-        judge(srcStr, specialStrCode);
+        genToken(srcStr, specialStrCode);
     }else if(ch=='\"'){ // strcon
         int save_currLineNumber = currLineNumber;
         char lastch = ch;
@@ -146,7 +151,7 @@ void getsym(){
             srcStr+=ch;
             lastch = ch;
         }
-        judge(srcStr,commonStrCode);
+        genToken(srcStr,commonStrCode);
     }else if(ch=='\''){ // charcon
         if(ch=='\\'){ // 转义字符
             getch(ch);
@@ -161,37 +166,37 @@ void getsym(){
             roll_back(-1);
             return;
         }
-        judge(srcStr,charCode);
+        genToken(srcStr,charCode);
     }else if(ch=='('){ // 小括号
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         leftBrack_LN.push({ch,currLineNumber});
     }else if(ch=='{'){ // 大括号
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         leftBrack_LN.push({ch,currLineNumber});
     }else if(ch=='['){ // 中括号
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         leftBrack_LN.push({ch,currLineNumber});
     }else if(ch==')'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         char nearBrack = leftBrack_LN.top().first;  // 匹配判断
         if(nearBrack!='(') error(save_currLineNumber,mismatchError[ch]);
         else leftBrack_LN.pop(); // FIXME: pop的位置不知道对不对            
     }else if(ch==']'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         char nearBrack = leftBrack_LN.top().first;  // 匹配判断
         if(nearBrack!='[') error(save_currLineNumber,mismatchError[ch]);
         else leftBrack_LN.pop(); // FIXME: pop的位置不知道对不对            
     }else if(ch=='}'){
         int save_currLineNumber = currLineNumber;
         srcStr+=ch;
-        judge(srcStr,specialStrCode);
+        genToken(srcStr,specialStrCode);
         // 一段的结束
         while(!leftBrack_LN.empty() && leftBrack_LN.top().first!='{') {
             error(leftBrack_LN.top().second, mismatchError[leftBrack_LN.top().first]);
@@ -205,7 +210,16 @@ void getsym(){
     }
 }
 
+
+void getParser(){
+    // 逐步对token进行分析，感觉可以依次读入那个文件夹
+}
+
+
+
 int main(){
+    // testStrTransfer();
+
     ifp.open(inFile, ios::binary);  // 因为涉及到字节回退，这里最好是binary打开
     ofp.open(outFile);
     while(!ifp.eof()){

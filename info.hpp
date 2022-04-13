@@ -2,10 +2,48 @@
 #include<bits/stdc++.h>
 using namespace std;
 
-const string IDENFR = "IDENFR";
-const string INTCON = "INTCON";
-const string CHARCON = "CHARCON";
-const string STRCON = "STRCON";
+struct Token{
+    string type;
+    string valueStr;
+    int lineNumber;
+};
+
+class Lexer{
+private:
+    vector<Token> tokens;
+    int curr,tot;
+public:
+    Lexer(){
+        this->curr = 0;
+        this->tot = 0;
+    }
+    
+    void add_token(Token t){
+        this->tokens.push_back(t);
+        ++this->tot;
+    }
+
+    Token& next_token(){
+        return this->tokens[this->curr++];
+    }
+
+    bool roll_back(){
+        this->curr--;
+        if(curr<0) {
+            cout<<"Lexer无法再回退"<<endl;
+            this->curr++;
+            return false;
+        }
+        return true;
+    }
+
+}; 
+
+// 非终结符，存在值
+const string IDENFR = "IDENFR"; // 名字, string
+const string INTCON = "INTCON"; // value, int
+const string CHARCON = "CHARCON"; // value, char
+const string STRCON = "STRCON"; // value, string
 
 int currLineNumber = 1;
 int errorCnt;
@@ -19,9 +57,6 @@ const int charCode = 3;
 const string illegalInt = "非法int";
 const string illegalOp = "非法操作数";
 const string illegalComma = "非法引号";
-const string mismatchLittle = "不匹配(";
-const string mismatchBig = "不匹配{";
-const string mismatchMiddle = "不匹配[";
 
 map<char, string> mismatchError = {
     {'(',"不匹配("},
@@ -34,6 +69,7 @@ map<char, string> mismatchError = {
     {'\"',"不匹配双引号"},
 };
 
+// 终结符
 map<string, string> specialCateCodeMap = {
     // 关键字
     {"else", "ELSETK"},
