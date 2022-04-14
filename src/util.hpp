@@ -1,6 +1,9 @@
 #pragma once
-#include<bits/stdc++.h>
-using namespace std;
+#include<iostream>
+#include<string>
+using std::string;
+using std::cout;
+using std::endl;
 
 int str2int(string s){
     int res = 0, n = s.size();

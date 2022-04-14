@@ -10,7 +10,7 @@ private:
     ifstream ifp;
     char ch;
     int currLineNumber = 1, currCol = 1;
-    stack< pair<char,int> > leftBrack_LN; // 匹配号，行号
+    stack< tuple<char,int,int> > leftBrack_LN; // 匹配号，行号， 列
     vector<Token> tokens;
     int currIdx = 0,tot = 0;
     
@@ -89,7 +89,7 @@ public:
         return this->tokens[this->currIdx++];
     }
 
-    bool roll_back(){
+    bool roll_back_currIdx(){
         this->currIdx--;
         if(currIdx<0) {
             cout<<"Lexer无法再回退"<<endl;
@@ -97,6 +97,10 @@ public:
             return false;
         }
         return true;
+    }
+
+    bool isEnd(){
+        return (this->currIdx == this->tot);
     }
 
 private:
@@ -143,7 +147,7 @@ private:
             srcStr+=ch;
             getch();
             if(ch != '='){  // !=
-                error(currLineNumber,illegalOp);
+                error(currLineNumber,currCol, illegalLexcial);
                 roll_back(-1);
                 return;
             }else{
@@ -173,13 +177,14 @@ private:
             genToken(srcStr, specialStrCode);
         }else if(ch=='\"'){ // strcon
             int save_currLineNumber = currLineNumber;
+            int save_currCol = currCol;
             char lastch = ch;
             while(true){  // ", 成对处理
                 getch();
                 if(lastch!='\\' && ch=='\"') {
                     break;
                 }else if(ch=='\n'){
-                    error(save_currLineNumber, illegalComma);
+                    error(save_currLineNumber, save_currCol, illegalLexcial);
                     break;
                 }
                 srcStr+=ch;
@@ -196,7 +201,7 @@ private:
             srcStr += ch;
             getch();
             if(ch!='\''){  // 判断：一个完整的字符,且只有一个字符
-                error(currLineNumber,illegalComma);
+                error(currLineNumber, currCol, illegalLexcial);
                 roll_back(-1);
                 return;
             }
@@ -204,40 +209,40 @@ private:
         }else if(ch=='('){ // 小括号
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber});
+            leftBrack_LN.push({ch,currLineNumber,currCol});
         }else if(ch=='{'){ // 大括号
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber});
+            leftBrack_LN.push({ch,currLineNumber,currCol});
         }else if(ch=='['){ // 中括号
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber});
+            leftBrack_LN.push({ch,currLineNumber,currCol});
         }else if(ch==')'){
-            int save_currLineNumber = currLineNumber;
+            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            char nearBrack = leftBrack_LN.top().first;  // 匹配判断
-            if(nearBrack!='(') error(save_currLineNumber,mismatchError[ch]);
+            char nearBrack = get<0>(leftBrack_LN.top());  // 匹配判断
+            if(nearBrack!='(') error(save_currLineNumber,save_currCol,shouldRlittle);
             else leftBrack_LN.pop();
         }else if(ch==']'){
-            int save_currLineNumber = currLineNumber;
+            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            char nearBrack = leftBrack_LN.top().first;  // 匹配判断
-            if(nearBrack!='[') error(save_currLineNumber,mismatchError[ch]);
+            char nearBrack = get<0>(leftBrack_LN.top());  // 匹配判断
+            if(nearBrack!='[') error(save_currLineNumber,save_currCol,shouldRmid);
             else leftBrack_LN.pop();
         }else if(ch=='}'){
-            int save_currLineNumber = currLineNumber;
+            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
             // 一段的结束
-            while(!leftBrack_LN.empty() && leftBrack_LN.top().first!='{') {
-                error(leftBrack_LN.top().second, mismatchError[leftBrack_LN.top().first]);
+            while(!leftBrack_LN.empty() && get<0>(leftBrack_LN.top())!='{') {
+                error(get<1>(leftBrack_LN.top()), get<2>(leftBrack_LN.top()), illegalLexcial);
                 leftBrack_LN.pop();
             }
-            if(leftBrack_LN.empty() || leftBrack_LN.top().first!='{'){
-                error(save_currLineNumber,mismatchError[ch]);
+            if(leftBrack_LN.empty() || get<0>(leftBrack_LN.top())!='{'){
+                error(save_currLineNumber,save_currCol, illegalLexcial);
             }else{
                 leftBrack_LN.pop();
             }
