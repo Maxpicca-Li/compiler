@@ -2,6 +2,7 @@
 #include<string>
 #include<iostream>
 #include<map>
+#include<info.hpp>
 
 using std::string;
 using std::map;
@@ -42,5 +43,10 @@ map<char, string> errorId_str = {
 
 void error(int errorLineNumber, int errorCol, ErrorID errorId){
     std::cout << "line:" << errorLineNumber << ", col:" << errorCol << ", error:" << errorId_str[errorId] << '\n';
+    ++errorCnt;
+}
+
+void error(Token t, ErrorID errorId){
+    std::cout << "line:" << t.line << ", col:" << t.col << ", error:" << errorId_str[errorId] << '\n';
     ++errorCnt;
 }

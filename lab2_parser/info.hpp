@@ -53,6 +53,7 @@ enum StateID{
     FACTOR, // 因子
 
     // sentence 11种
+    SENTENCE,
     SENTENCE_LOOP, STEP, // 步长
     SENTENCE_IF, CONDITION, // 条件
     SENTENCE_CALLFUNC_RETURN, 
@@ -63,11 +64,10 @@ enum StateID{
     SENTENCE_SWITCH, SUB_SENTENCE_SWITCH, SUB_SENTENCE_DEFAULT,LIST_CASE, // 情况表
     SENTENCE_NULL,
     SENTENCE_RETURN,
-    SENTENCE_MULTI_BLOCK, 
+    SENTENCE_MULTI, 
     
     // 组合
     SENTENCE_COMPOUND,  // 复合语句
-    SENTENCE_MULTI, // 语句列
     PROGRAM, // 程序
 };
 

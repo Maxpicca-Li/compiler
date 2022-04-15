@@ -112,10 +112,9 @@ private:
                 if(!currMatch(LBIG)) { return; } // error
                 node0->children.push_back(NEWLEAF);NEXTTOKEN;
                 TreeNode* sentences =  new TreeNode(SENTENCE_COMPOUND); // 复合语句
-                parser_sentences(sentences);
+                parser_sentence_compound(sentences);
                 if(!currMatch(RBIG)) { return; } // error
                 node0->children.push_back(NEWLEAF);NEXTTOKEN;
-                // TODO: 跳转到解析参数列表
                 return;
             }
             // root ==> 变量声明 ==> 变量定义 ==> 有无初始化tmp ==> tmp.children
@@ -175,11 +174,137 @@ private:
         return;
     }
 
-    void parser_sentences(TreeNode* root) { // 复合语句
-        // ＜复合语句＞   ::=  ［＜常量说明＞］［＜变量说明＞］＜语句列＞
-        // TEMP
-        while(!currMatch(RBIG,0)) NEXTTOKEN;
+    void parser_sentence_compound(TreeNode* root) { // ＜复合语句＞   ::=  ［＜常量说明＞］［＜变量说明＞］＜语句列＞
+        // TODO 复合语句
+        while(!currMatch(RBIG,0)) {
+            if(currMatch(CONSTTK,0)){
+                // 常量声明
+                TreeNode* node1 = new TreeNode(DECLARE_CONST);
+                root->children.push_back(node1);
+                parser_const_declare(node1);  // return时, 已经读取到了下一个
+            }else if(currMatch(INTTK,0) || currMatch(CHARTK,0)) {
+                // 变量声明 | 函数声明
+                parser_var_declare(root);   
+            }else{
+                // 语句列
+                TreeNode* node1 = new TreeNode(SENTENCE_MULTI);
+                root->children.push_back(node1);
+                parser_sentences(node1);  // return时, 已经读取到了下一个
+            }
+        };
         return;
+    }
+
+    void parser_sentences(TreeNode* root) { // 语句列|条件语句==>多种语句==具体的语句
+        TreeNode* st = new TreeNode(SENTENCE);
+        switch (currToken.type)
+        {
+        case WHILETK: // while循环
+            TreeNode* stWhile = new TreeNode(SENTENCE_LOOP);
+            root->children.push_back(st);
+            st->children.push_back(stWhile);
+            parser_while(stWhile);
+            break;
+        case FORTK: // for循环
+            TreeNode* stFor = new TreeNode(SENTENCE_LOOP);
+            root->children.push_back(st);
+            st->children.push_back(stFor);
+            parser_for(stFor);
+            break;
+        case IFTK: // if条件
+            TreeNode* stIf = new TreeNode(SENTENCE_IF);
+            root->children.push_back(st);
+            st->children.push_back(stIf);
+            parser_if(stIf);
+            break;
+        
+        default:
+            delete st;
+            break;
+        }
+    }
+
+    void parser_for(TreeNode* root){ // <循环语句> ==> for'('＜标识符＞＝＜表达式＞;＜条件＞;＜标识符＞＝＜标识符＞(+|-)＜步长＞')'＜语句＞
+        // for
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 左括号
+        if(!currMatch(LSMALL)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 标识符
+        if(!currMatch(IDENFR,0)){ error(currToken, illegalLexcial); }
+        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // =
+        if(!currMatch(ASSIGN,0)){ error(currToken, illegalLexcial); }
+        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 表达式
+        TreeNode* expression = new TreeNode(EXPRESSION);
+        root->children.push_back(expression); 
+        parser_expression(expression); // 解析表达式
+        // 分号
+        if(!currMatch(SEMICN,0)){ error(currToken, illegalLexcial); }
+        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 条件
+        TreeNode* condition = new TreeNode(CONDITION);
+        root->children.push_back(condition);
+        parser_condition(condition); // 解析条件
+        // 分号
+        if(!currMatch(SEMICN,0)){ error(currToken, illegalLexcial); }
+        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 
+        // 反括号
+        if(!currMatch(RSMALL)) {
+            error(currToken, shouldRsmall);
+        }else{
+            root->children.push_back(NEWLEAF); NEXTTOKEN;
+        }
+    }
+    void parser_while(TreeNode* root){ // <循环语句> ==> while '('＜条件＞')'＜语句＞
+        // while
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 条件语句
+        parser_condition_sentence(root);
+    }
+    
+    void parser_if(TreeNode* root){  // ＜条件语句＞  ::= if '('＜条件＞')'＜语句＞［else＜语句＞］
+        // if
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 条件语句
+        parser_condition_sentence(root);
+        // 是否有else
+        if(currMatch(ELSETK,0)){
+            root->children.push_back(NEWLEAF); NEXTTOKEN;    
+            parser_sentences(root);
+        }
+    }
+
+    void parser_condition_sentence(TreeNode* root){  // root ==> '('＜条件＞')'＜语句＞
+        // 左括号
+        if(!currMatch(LSMALL)) {
+            error(currToken, illegalLexcial);
+        }else{
+            root->children.push_back(NEWLEAF); NEXTTOKEN;
+        }
+        // 条件
+        TreeNode* condition = new TreeNode(CONDITION);
+        root->children.push_back(condition);
+        parser_condition(condition); // 解析条件
+        // 反括号
+        if(!currMatch(RSMALL)) {
+            error(currToken, shouldRsmall);
+        }else{
+            root->children.push_back(NEWLEAF); NEXTTOKEN;
+        }
+        // 语句
+        parser_sentences(root);
+    }
+    
+    void parser_condition(TreeNode* root){ // 条件
+        // TODO: 条件解析
+        while(!currMatch(RSMALL,0)) NEXTTOKEN;
+    }
+
+    void parser_expression(TreeNode* root){ // ＜表达式＞ ::= ［＋｜－］＜项＞{＜加法运算符＞＜项＞}
+        // TODO:表达式解析
     }
 
     void parser_var_define(TreeNode* root, TokenID defineType){ // root=变量定义有无初始化

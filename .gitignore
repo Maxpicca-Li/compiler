@@ -46,3 +46,9 @@ output/
 doc/
 ref/
 submit/
+
+# self define: submit
+*.doc
+*.docx
+*.zip
+*.rar
