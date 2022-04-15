@@ -18,11 +18,12 @@ enum TokenID{
     // 比较符
     EQL,NEQ,LSS,LEQ,GRE,GEQ,
     // 标点符号
-    SEMICN,COMMA,LPARENT,RPARENT,LBRACK,RBRACK,LBRACE,RBRACE,COLON
+    SEMICN,COMMA,LSMALL,RSMALL,LMID,RMID,LBIG,RBIG,COLON
 }; 
 
 
 enum StateID{
+    STATE_NONE, // 缺省占位
     // declare
     DECLARE_CONST, // 声明常量
     DECLARE_VAR, // 声明变量
@@ -103,12 +104,12 @@ map<TokenID, string> tokenId_str = {
     {GEQ, "GEQ"},
     {SEMICN, "SEMICN"},
     {COMMA, "COMMA"},
-    {LPARENT, "LPARENT"},
-    {RPARENT, "RPARENT"},
-    {LBRACK, "LBRACK"},
-    {RBRACK, "RBRACK"},
-    {LBRACE, "LBRACE"},
-    {RBRACE, "RBRACE"},
+    {LSMALL, "LPARENT"},
+    {RSMALL, "RPARENT"},
+    {LMID, "LBRACK"},
+    {RMID, "RBRACK"},
+    {LBIG, "LBRACE"},
+    {RBIG, "RBRACE"},
     {COLON, "COLON"},
 };
 
@@ -146,18 +147,19 @@ map<string, TokenID> specialCateCodeMap = {
     // 标点符号
     {";", SEMICN},
     {",", COMMA},
-    {"(", LPARENT},
-    {")", RPARENT},
-    {"[", LBRACK},
-    {"]", RBRACK},
-    {"{", LBRACE},
-    {"}", RBRACE},
+    {"(", LSMALL},
+    {")", RSMALL},
+    {"[", LMID},
+    {"]", RMID},
+    {"{", LBIG},
+    {"}", RBIG},
     {":", COLON},
 };
 
 
 map<StateID, string> stateId_str = {
     // declare
+    {STATE_NONE,"缺省占位"},
     {DECLARE_CONST,"常量说明"},
     {DECLARE_VAR,"变量说明"},
     {DECLARE_HEADER,"声明头部"},

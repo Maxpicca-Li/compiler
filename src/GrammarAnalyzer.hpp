@@ -100,11 +100,21 @@ private:
             
             // ! ! ! 重要判断流程判断 ! ! !
             NEXTTOKEN;
-            // root ==> 头部声明tmp ==> 解析参数列表tmp.childern
-            if(currMatch(LPARENT,0)){
+            // root ==> 有返回值函数定义 ==> 头部声明tmp ==> 解析参数列表tmp.childern
+            if(currMatch(LSMALL,0)){
                 if(flag){ delete node1; } // 如果中间节点node1的子结点为空
                 tmp->stateId = DECLARE_HEADER;
-                root->children.push_back(tmp);
+                TreeNode* node0 = new TreeNode(DEFINE_FUNC_RETURN); // 有|无返回值函数定义
+                root->children.push_back(node0);
+                node0->children.push_back(tmp);
+                parser_arguments(node0); 
+                // 里面比较复杂，就先匹配外面的大括号
+                if(!currMatch(LBIG)) { return; } // error
+                node0->children.push_back(NEWLEAF);NEXTTOKEN;
+                TreeNode* sentences =  new TreeNode(SENTENCE_COMPOUND); // 复合语句
+                parser_sentences(sentences);
+                if(!currMatch(RBIG)) { return; } // error
+                node0->children.push_back(NEWLEAF);NEXTTOKEN;
                 // TODO: 跳转到解析参数列表
                 return;
             }
@@ -129,6 +139,49 @@ private:
         return ;
     }
 
+    void parser_arguments(TreeNode* root){ // 有|无返回值函数定义
+        if(!currMatch(LSMALL)) return;
+        root->children.push_back(NEWLEAF);
+        NEXTTOKEN;
+        TreeNode* args = new TreeNode(LIST_ARGUMENT);
+        root->children.push_back(args);
+        while(!currMatch(RSMALL,0) && !currMatch(LBIG,0)){
+            if(!currMatch(INTTK,0) && !currMatch(CHARTK,0)) { 
+                error(currToken.line, currToken.col, illegalLexcial);
+            }else{
+                args->children.push_back(NEWLEAF); 
+                NEXTTOKEN;
+            }
+            if(!currMatch(IDENFR)){
+                error(currToken.line, currToken.col, illegalLexcial);
+            }else{
+                args->children.push_back(NEWLEAF); 
+                NEXTTOKEN;
+            }
+            // 判断是否是都好
+            if(currMatch(COMMA,0)){
+                args->children.push_back(NEWLEAF); 
+                NEXTTOKEN;
+            }else{
+                break;
+            }
+        }
+        if(currMatch(RSMALL)){
+            root->children.push_back(NEWLEAF);
+            NEXTTOKEN;
+        }else if(currMatch(LBIG)){
+            error(currToken.col, currToken.col, shouldRsmall);
+        }
+        return;
+    }
+
+    void parser_sentences(TreeNode* root) { // 复合语句
+        // ＜复合语句＞   ::=  ［＜常量说明＞］［＜变量说明＞］＜语句列＞
+        // TEMP
+        while(!currMatch(RBIG,0)) NEXTTOKEN;
+        return;
+    }
+
     void parser_var_define(TreeNode* root, TokenID defineType){ // root=变量定义有无初始化
         // defineSub: 
         // 类标识符解决了; 标识符第一次判断解决了, ','后的子句判断没解决
@@ -140,7 +193,7 @@ private:
             root->children.push_back(NEWLEAF);
             NEXTTOKEN;
         }
-        if(currMatch(LBRACK,0)){  
+        if(currMatch(LMID,0)){  
             // 数组
             arrayA = 0;arrayB = 0;
             parse_brack(root); // 解析维度
@@ -253,18 +306,18 @@ private:
 
     void parse_brack(TreeNode* root){ // 叶结点的上方
         // [
-        if(!currMatch(LBRACK)) { return; }
+        if(!currMatch(LMID)) { return; }
         root->children.push_back(NEWLEAF);
         // 无符号整数
         NEXTTOKEN;
         arrayA = parse_int(root, true);
         // ]
         NEXTTOKEN;
-        if(!currMatch(RBRACK)) { return; }
+        if(!currMatch(RMID)) { return; }
         root->children.push_back(NEWLEAF);
         NEXTTOKEN;
 
-        if(currMatch(LBRACK,0)) {
+        if(currMatch(LMID,0)) {
             // [
             root->children.push_back(NEWLEAF);
             // 无符号整数
@@ -272,20 +325,19 @@ private:
             arrayB = parse_int(root, true);
             // ]
             NEXTTOKEN;
-            if(!currMatch(RBRACK)) { return; }
+            if(!currMatch(RMID)) { return; }
             root->children.push_back(NEWLEAF);
             NEXTTOKEN;
         }
     }
 
-    /* FIXME: parse_array_init */
     void parse_array_init(TreeNode* root, TokenID defineType){
         if(arrayB==0){ // 只有一维度
             __array_init(root, arrayA, defineType);
             NEXTTOKEN;
         }else{
             // 开头的}
-            if(!currMatch(LBRACE)) {return;}
+            if(!currMatch(LBIG)) {return;}
             root->children.push_back(NEWLEAF); 
             NEXTTOKEN;
             __array_init(root, arrayA, defineType);
@@ -296,13 +348,13 @@ private:
             NEXTTOKEN;
             __array_init(root, arrayB, defineType);
             // 结尾的}
-            if(!currMatch(RBRACE)) {return;}
+            if(!currMatch(RBIG)) {return;}
             root->children.push_back(NEWLEAF); 
             NEXTTOKEN;
         }
     }
     void __array_init(TreeNode* root, int d, TokenID defineType){
-        if(!currMatch(LBRACE)) {return;}
+        if(!currMatch(LBIG)) {return;}
         root->children.push_back(NEWLEAF); 
         NEXTTOKEN;
         for(int i=0;i<d;i++){
@@ -315,7 +367,7 @@ private:
             if(defineType==INTTK) parse_int(root); 
             else parse_char(root); 
         }
-        if(!currMatch(RBRACE)) {
+        if(!currMatch(RBIG)) {
             error(currToken.line, currToken.col, arrayCntError);
             return; // TODO: 如何跳过知道下一个可以
         }
@@ -325,7 +377,6 @@ private:
     bool currMatch(TokenID tId, int log=1){
         if(log){
             if(currToken.type!=tId){
-                // TODO: error
                 cout << "预期出现<" << tokenId_str[tId] << ">, 实际出现:" << currToken;
             }
         }

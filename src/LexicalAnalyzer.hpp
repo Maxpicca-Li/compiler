@@ -223,7 +223,7 @@ private:
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
             char nearBrack = get<0>(leftBrack_LN.top());  // 匹配判断
-            if(nearBrack!='(') error(save_currLineNumber,save_currCol,shouldRlittle);
+            if(nearBrack!='(') error(save_currLineNumber,save_currCol,shouldRsmall);
             else leftBrack_LN.pop();
         }else if(ch==']'){
             int save_currLineNumber = currLineNumber, save_currCol = currCol;

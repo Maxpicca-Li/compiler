@@ -10,7 +10,7 @@ int errorCnt = 0;
 enum ErrorID{
     illegalLexcial='a', redefinition, undefined, funcParamsNumber, funcParamsType, 
     illegalCondition, funcNoReturn, funcWithReturn, arrayDimError, constChange, 
-    shouldSEMICN, shouldRlittle, shouldRmid, arrayCntError, constType, lackDeafult
+    shouldSEMICN, shouldRsmall, shouldRmid, arrayCntError, constType, lackDeafult
 };
 
 map<char, string> errorId_str = {
@@ -25,7 +25,7 @@ map<char, string> errorId_str = {
     {arrayDimError, "数组元素的下标只能是整型表达式"},
     {constChange, "不能改变常量的值"},
     {shouldSEMICN, "应为分号"},
-    {shouldRlittle, "应为右小括号')'"},
+    {shouldRsmall, "应为右小括号')'"},
     {shouldRmid, "应为右中括号']'"},
     {arrayCntError, "数组初始化个数不匹配"},
     {constType, "<常量>类型不一致"},
