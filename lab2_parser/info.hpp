@@ -61,7 +61,7 @@ enum StateID{
     SENTENCE_ASSIGN, 
     SENTENCE_READ, 
     SENTENCE_WRITE, 
-    SENTENCE_SWITCH, SUB_SENTENCE_SWITCH, SUB_SENTENCE_DEFAULT,LIST_CASE, // 情况表
+    SENTENCE_SWITCH, SENTENCE_SWITCH_SUB, SENTENCE_SWITCH_DEFAULT,LIST_CASE, // 情况表
     SENTENCE_NULL,
     SENTENCE_RETURN,
     SENTENCE_MULTI, 
@@ -191,8 +191,8 @@ map<StateID, string> stateId_str = {
     {FACTOR, "因子"},
 
     // sentence derive
-    {SUB_SENTENCE_SWITCH, "情况子语句"},
-    {SUB_SENTENCE_DEFAULT, "缺省"},
+    {SENTENCE_SWITCH_SUB, "情况子语句"},
+    {SENTENCE_SWITCH_DEFAULT, "缺省"},
     {CONDITION, "条件"},
     {STEP, "步长"},
 

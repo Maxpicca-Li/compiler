@@ -2,7 +2,7 @@
 #include<string>
 #include<iostream>
 #include<map>
-#include<info.hpp>
+#include"info.hpp"
 
 using std::string;
 using std::map;

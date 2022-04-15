@@ -71,7 +71,7 @@ public:
 private:
 
     void parser_program(TreeNode* root){
-        bool is_integral = false;
+        bool is_integral = false; // TODO: is_integral的分析
         while(!lexer.isEnd()){
             if(currMatch(CONSTTK,0)){
                 // 常量声明
@@ -267,31 +267,42 @@ private:
         return;
     }
 
-    void parser_sentences(TreeNode* root) { // 语句列|条件语句==>多种语句==具体的语句
+    void parser_sentences(TreeNode* root) { // 语句列|条件语句|switch==>多种语句==具体的语句
         TreeNode* st = new TreeNode(SENTENCE);
         string name;
         switch (currToken.type)
         {
-        case WHILETK: // while循环
+        case WHILETK:{ // while循环
             TreeNode* stWhile = new TreeNode(SENTENCE_LOOP);
             root->children.push_back(st);
             st->children.push_back(stWhile);
             parser_while(stWhile);
-            break;
-        case FORTK: // for循环
+            }break;
+        case FORTK:{ // for循环
             TreeNode* stFor = new TreeNode(SENTENCE_LOOP);
             root->children.push_back(st);
             st->children.push_back(stFor);
             parser_for(stFor);
-            break;
-        case IFTK: // if条件
+            }break;
+        case IFTK:{ // if条件
             TreeNode* stIf = new TreeNode(SENTENCE_IF);
             root->children.push_back(st);
             st->children.push_back(stIf);
             parser_if(stIf);
-            break;
-        
-        case IDENFR:
+            }break;
+        case SCANFTK:{ // 读语句
+            TreeNode* stRead = new TreeNode(SENTENCE_READ);
+            root->children.push_back(st);
+            st->children.push_back(stRead);
+            parser_read(stRead);
+            }break;
+        case PRINTFTK:{ // 写语句
+            TreeNode* stWrite = new TreeNode(SENTENCE_WRITE);
+            root->children.push_back(st);
+            st->children.push_back(stWrite);
+            parser_write(stWrite);
+            }break;
+        case IDENFR: {// 函数调用|赋值
             int varflag = 0;
             name = currToken.valueStr;
             // 函数
@@ -311,11 +322,168 @@ private:
             st->children.push_back(stAssign);
             parser_assign(stAssign,v);
             return;
-            break;
+            }break;
+        case RETURNTK:{ // 返回语句
+            TreeNode* stR = new TreeNode(SENTENCE_RETURN);
+            root->children.push_back(st);
+            st->children.push_back(stR);
+            parser_return(stR);
+            }break;
+        case SEMICN:{ // 空语句
+            TreeNode* stNULL = new TreeNode(SENTENCE_NULL);
+            root->children.push_back(st);
+            st->children.push_back(stNULL);
+            // 分号
+            if(!currMatch(SEMICN,0)) {error(currToken,illegalLexcial);}
+            else { st->children.push_back(NEWLEAF); NEXTTOKEN;}
+            return;
+            }break;
+        case SWITCHTK: {// 情况语句
+            TreeNode* stSwitch = new TreeNode(SENTENCE_SWITCH);
+            root->children.push_back(st);
+            st->children.push_back(stSwitch);
+            parser_switch(stSwitch);
+            return;
+            }break;
+        case LBIG: {// 语句列
+            st->children.push_back(NEWLEAF); NEXTTOKEN;
+            TreeNode* sts = new TreeNode(SENTENCE_MULTI);
+            root->children.push_back(st);
+            st->children.push_back(sts);
+            parser_sentences(sts);
+            // }
+            if(!currMatch(RBIG,0)) {error(currToken,illegalLexcial);}
+            else { st->children.push_back(NEWLEAF); NEXTTOKEN;}
+            return;
+            }break;
         default:
             delete st;
+            cout << "ERROR: !!!语句没有被匹配到!!!" << endl;
+            NEXTTOKEN;
             break;
         }
+    }
+
+    void parser_switch(TreeNode* root){ // 情况语句
+        if(!currMatch(SWITCHTK,0)){ return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 左括号
+        if(!currMatch(LSMALL)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 表达式
+        TreeNode* exp = new TreeNode();
+        root->children.push_back(exp);
+        parser_expression(exp);
+        // 反括号
+        if(!currMatch(RSMALL)) { error(currToken, shouldRsmall); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 大括号
+        if(!currMatch(LBIG)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 情况表
+        TreeNode* node = new TreeNode(LIST_CASE);
+        root->children.push_back(node);
+        parser_list_case(node);
+        // 缺省
+        parser_switch_default(root);
+        // 反括号
+        if(!currMatch(RBIG)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        return;
+    }
+
+    void parser_list_case(TreeNode* root){ // 情况表
+        while(!currMatch(DEFAULTTK,0)){
+            TreeNode* node = new TreeNode(SENTENCE_SWITCH_SUB);
+            root->children.push_back(node);
+            parser_case(node);
+        }
+
+    }
+
+    void parser_case(TreeNode* root){ // 情况子语句
+        // case
+        if(!currMatch(CASETK)) {error(currToken, illegalLexcial); return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 常量
+        if(currMatch(CHARCON,0)){
+            parser_char(root); 
+        }else{
+            parser_int(root); 
+        }
+        // 冒号
+        if(!currMatch(COLON)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 语句
+        parser_sentences(root);
+    }
+
+    void parser_switch_default(TreeNode* root){ // 缺省
+        // default
+        if(!currMatch(DEFAULTTK)) {error(currToken, illegalLexcial); return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 冒号
+        if(!currMatch(COLON)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 语句
+        parser_sentences(root);
+    }
+    
+    void parser_return(TreeNode* root){ // 返回语句
+        if(!currMatch(RETURNTK,0)){ return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 左括号
+        if(!currMatch(LSMALL)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 表达式
+        TreeNode* exp = new TreeNode();
+        root->children.push_back(exp);
+        parser_expression(exp);
+        // 反括号
+        if(!currMatch(RSMALL)) { error(currToken, shouldRsmall); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        return;
+    }
+
+    void parser_write(TreeNode* root){  // 写语句
+        if(!currMatch(PRINTFTK,0)){ error(currToken, illegalLexcial); return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 左括号
+        if(!currMatch(LSMALL)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 字符串
+        if(currMatch(STRCON,0)){
+            root->children.push_back(NEWLEAF); NEXTTOKEN;
+            if(currMatch(COMMA,0)){
+                root->children.push_back(NEWLEAF); NEXTTOKEN;
+                // 标识符
+                if(!currMatch(IDENFR)) { error(currToken, illegalLexcial); }
+                else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }        
+            }
+        }else{
+            // 标识符
+            if(!currMatch(IDENFR)) { error(currToken, illegalLexcial); }
+            else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        }
+        // 反括号
+        if(!currMatch(RSMALL)) { error(currToken, shouldRsmall); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        return;
+    }
+
+    void parser_read(TreeNode* root){  // 读语句
+        if(!currMatch(SCANFTK,0)){ error(currToken, illegalLexcial); return;}
+        root->children.push_back(NEWLEAF); NEXTTOKEN;
+        // 左括号
+        if(!currMatch(LSMALL)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 标识符
+        if(!currMatch(IDENFR)) { error(currToken, illegalLexcial); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        // 反括号
+        if(!currMatch(RSMALL)) { error(currToken, shouldRsmall); }
+        else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        return;
     }
 
     /* ＜赋值语句＞ ::= ＜标识符＞＝＜表达式＞|＜标识符＞'['＜表达式＞']'=＜表达式＞|＜标识符＞'['＜表达式＞']''['＜表达式＞']' =＜表达式＞ */
@@ -413,7 +581,7 @@ private:
         // FIXME: 步长, 感觉也应该包括标识符. ＜步长＞::= ＜无符号整数＞ 
         TreeNode* step = new TreeNode(STEP);
         root->children.push_back(step); 
-        parse_int(step);
+        parser_int(step);
         // 反括号
         if(!currMatch(RSMALL)) { error(currToken, shouldRsmall); }
         else{ root->children.push_back(NEWLEAF); NEXTTOKEN;}
@@ -516,9 +684,9 @@ private:
             root->children.push_back(NEWLEAF);NEXTTOKEN;
             return;
         }else if(currMatch(INTTK,0)){
-            parse_int(root);
+            parser_int(root);
         }else if(currMatch(CHARTK,0)){
-            parse_char(root);
+            parser_char(root);
         }else if(currMatch(IDENFR,0)){
             string name = currToken.valueStr;
             if(funcTable.find(name)!=funcTable.end()){
@@ -573,7 +741,7 @@ private:
         if(currMatch(LMID,0)){  
             // 数组
             arrayA = 0;arrayB = 0;
-            parse_brack(root); // 解析维度
+            parser_brack(root); // 解析维度
             v.sizeA = arrayA; 
             v.sizeB = arrayB; 
             if(arrayB!=0){
@@ -590,7 +758,7 @@ private:
                 root->stateId = DEFINE_VAR_INIT;    
                 root->children.push_back(NEWLEAF);
                 NEXTTOKEN;
-                parse_array_init(root,defineType,v); // 初始化解析
+                parser_array_init(root,defineType,v); // 初始化解析
             }else{ 
                 // 无初始化
                 root->stateId = DEFINE_VAR_NO;
@@ -601,8 +769,8 @@ private:
                 // 有初始化
                 root->stateId = DEFINE_VAR_INIT;
                 root->children.push_back(NEWLEAF); NEXTTOKEN;
-                if(defineType==INTTK) parse_int(root);
-                else if(defineType==CHARTK) parse_char(root);
+                if(defineType==INTTK) parser_int(root);
+                else if(defineType==CHARTK) parser_char(root);
             }else{
                 // 无初始化
                 root->stateId = DEFINE_VAR_NO;
@@ -656,12 +824,12 @@ private:
         
         NEXTTOKEN;
         if(defineType==INTTK){ // 数字
-            int value = parse_int(root);
+            int value = parser_int(root);
             v.size = sizeof(value);
             v.valueP = new char(v.size);
             memcpy(v.valueP,&value,v.size);
         }else{ // 字符
-            char value = parse_char(root);
+            char value = parser_char(root);
             v.size = sizeof(value);
             v.valueP = new char(v.size);
             memcpy(v.valueP,&value,v.size);
@@ -675,7 +843,7 @@ private:
         } 
     }
 
-    int parse_int(TreeNode* root, bool unsign=false){
+    int parser_int(TreeNode* root, bool unsign=false){
         TreeNode* node1 = new TreeNode(INT);
         root->children.push_back(node1);
         TreeNode* node2 = new TreeNode(UNSIGNED_INT);
@@ -701,22 +869,22 @@ private:
         return minus ? -res : res;
     }
 
-    char parse_char(TreeNode* root){
+    char parser_char(TreeNode* root){
         // char
-        if(!currMatch(CHARCON)) { return; }
+        if(!currMatch(CHARCON)) { return 0; }
         root->children.push_back(NEWLEAF); 
         char res = currToken.valueStr[0];
         NEXTTOKEN;
         return res;
     }
 
-    void parse_brack(TreeNode* root){ // 叶结点的上方
+    void parser_brack(TreeNode* root){ // 叶结点的上方
         // [
         if(!currMatch(LMID)) { return; }
         root->children.push_back(NEWLEAF);
         // 无符号整数
         NEXTTOKEN;
-        arrayA = parse_int(root, true);
+        arrayA = parser_int(root, true);
         // ]
         NEXTTOKEN;
         if(!currMatch(RMID)) { return; }
@@ -728,7 +896,7 @@ private:
             root->children.push_back(NEWLEAF);
             // 无符号整数
             NEXTTOKEN;
-            arrayB = parse_int(root, true);
+            arrayB = parser_int(root, true);
             // ]
             NEXTTOKEN;
             if(!currMatch(RMID)) { return; }
@@ -737,7 +905,7 @@ private:
         }
     }
 
-    void parse_array_init(TreeNode* root, TokenID defineType, Variable& v){
+    void parser_array_init(TreeNode* root, TokenID defineType, Variable& v){
         arrayIdx = 0;
         if(arrayB==0){ // 只有一维度
             __array_init(root, arrayA, defineType, v);
@@ -773,11 +941,11 @@ private:
                 NEXTTOKEN;
             }
             if(defineType==INTTK) {
-                int res = parse_int(root); 
+                int res = parser_int(root); 
                 memcpy(v.valueP+arrayIdx*sizeof(int), &res, sizeof(int));
             }
             else {
-                char res = parse_char(root); 
+                char res = parser_char(root); 
                 memcpy(v.valueP+arrayIdx*sizeof(char), &res, sizeof(char));
             }
             ++arrayIdx;
@@ -828,9 +996,10 @@ private:
             error(currToken,undefined); 
             cout << "ERROR!!! 没有找到相关的变量，应该写错了，或者覆盖了" << endl;
             // 就新建立一个 Variable
-            Variable& v;
-            v.name = name; // 其他值保持默认
-            varTableCurrP->insert({name, v});
+            Variable tmp;
+            tmp.name = name; // 其他值保持默认
+            varTableCurrP->insert({name, tmp});
+            Variable& v = varTableCurrP->find(name)->second;
             return v;
         }else{
             Variable& v = (varflag==1)?varStaticTable[name]:varTableCurrP->find(name)->second;
