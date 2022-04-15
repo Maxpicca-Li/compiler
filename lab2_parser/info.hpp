@@ -34,7 +34,7 @@ enum StateID{
     DEFINE_VAR, // 变量定义
     DEFINE_VAR_NO, // 变量定义，无初始化
     DEFINE_VAR_INIT, // 变量定义，有初始化
-    DEFINE_FUNC, // 函数定义，无返回
+    DEFINE_FUNC_NO, // 函数定义，无返回
     DEFINE_FUNC_RETURN, // 函数定义，有返回
     DEFINE_FUNC_MAIN, // 主函数
 
@@ -70,6 +70,8 @@ enum StateID{
     SENTENCE_COMPOUND,  // 复合语句
     PROGRAM, // 程序
 };
+
+unordered_set<TokenID> comp_op = { EQL,NEQ,LSS,LEQ,GRE,GEQ};
 
 map<TokenID, string> tokenId_str = {
     {IDENFR, "IDENFR"},
@@ -169,7 +171,7 @@ map<StateID, string> stateId_str = {
     {DEFINE_VAR, "变量定义"},
     {DEFINE_VAR_NO, "变量定义无初始化"},
     {DEFINE_VAR_INIT, "变量定义及初始化"},
-    {DEFINE_FUNC, "无返回值函数定义"},
+    {DEFINE_FUNC_NO, "无返回值函数定义"},
     {DEFINE_FUNC_RETURN, "有返回值函数定义"},
     {DEFINE_FUNC_MAIN, "主函数"},
 
