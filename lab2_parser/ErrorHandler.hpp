@@ -47,6 +47,7 @@ void error(int errorLineNumber, int errorCol, ErrorID errorId){
 }
 
 void error(Token t, ErrorID errorId){
-    std::cout << "line:" << t.line << ", col:" << t.col << ", error:" << errorId_str[errorId] << '\n';
+    // std::cout << "line:" << t.line << ", col:" << t.col << ", error:" << errorId_str[errorId] << '\n';
+    std::cout << "ERROR: " << errorId_str[errorId] << ", line:" << t.line << ", col:" << t.col  << ", token:" << t.type << '\n';
     ++errorCnt;
 }

@@ -43,6 +43,7 @@ enum StateID{
     LIST_ARGUMENT_VALUE, // 传值传参
 
     // value
+    CONST, // 常量
     INT, // 整数
     UNSIGNED_INT, // 无符号整数
     STRING, // 字符串
@@ -181,6 +182,7 @@ map<StateID, string> stateId_str = {
     {LIST_CASE, "情况表"},
 
     // value
+    {CONST, "常量"},
     {INT, "整数"},
     {UNSIGNED_INT, "无符号整数"},
     {STRING, "字符串"},

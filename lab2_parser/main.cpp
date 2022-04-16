@@ -5,14 +5,15 @@
 #include "ErrorHandler.hpp"
 using namespace std;
 
-// #define SUBMIT 1
+#define SUBMIT 1
 #ifdef SUBMIT
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
 #else
     // const string inFile = "./data/1/testfile8.txt";
-    const string inFile = "./data/gcase.txt";
-    const string outFile = "./data/goutput_main.txt";
+    string idx = "2"; 
+    const string inFile = "./data/"+idx+"_gcase.txt";
+    const string outFile = "./data/"+idx+"_goutputM.txt";
 #endif
 
 int main(){
