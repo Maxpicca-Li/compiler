@@ -197,6 +197,7 @@ map<StateID, string> stateId_str = {
     {STEP, "步长"},
 
     // sentence 11种
+    {SENTENCE,"语句"},
     {SENTENCE_LOOP, "循环语句"},
     {SENTENCE_IF, "条件语句"}, 
     {SENTENCE_CALLFUNC_RETURN, "有返回值函数调用语句"},

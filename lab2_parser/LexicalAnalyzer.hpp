@@ -82,9 +82,8 @@ public:
     Token nextToken(){
         int tmp = currIdx;
         if(tmp==this->tot) {
-            cout << "到底了~, 已为您重置"<<endl;
-            tmp = 0;
-            currIdx = 0;
+            cout << "到底了~，返回最后一个token"<<endl;
+            currIdx -= 1;
         }
         return this->tokens[this->currIdx++];
     }

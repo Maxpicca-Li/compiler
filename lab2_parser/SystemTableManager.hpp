@@ -30,7 +30,8 @@ struct Variable{
         if(this->valueP!=NULL){
             delete [] valueP;
         }
-        valueP = new char(*x.valueP);
+        if(x.valueP==NULL) this->valueP = NULL;
+        else this->valueP = new char(*x.valueP);
     }
     
     Variable& operator=(const Variable& x){
@@ -42,7 +43,8 @@ struct Variable{
         if(this->valueP!=NULL){
             delete [] valueP;
         }
-        valueP = new char(*x.valueP);
+        if(x.valueP==NULL) this->valueP = NULL;
+        else this->valueP = new char(*x.valueP);
         return *this;
     }
 
