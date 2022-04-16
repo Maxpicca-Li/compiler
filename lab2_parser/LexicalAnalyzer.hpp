@@ -259,7 +259,7 @@ private:
         for(char& ch:copyStr){
             ch = tolower(ch);
         }
-        TokenID tokenId;
+        TokenID tokenId = DEFAULT;
         switch (caseCode){
         case specialStrCode:
             if(specialCateCodeMap.find(copyStr)!=specialCateCodeMap.end()){ // 在已知关键字里
