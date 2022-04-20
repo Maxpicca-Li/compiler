@@ -146,7 +146,7 @@ private:
             parser_var_define(tmp,defineType); // {标识符}+{=值} 的判断, '{}'标识可选
             // 分号
             if(currMatch(SEMICN,0)){ varDeclare->children.push_back(NEWLEAF); NEXTTOKEN; }
-            else{ ehandler.error(currToken, shouldSEMICN); }
+            else{ ehandler.error(lastToken, shouldSEMICN); } // 避免换行
             if(!currMatch(INTTK,0) && !currMatch(CHARTK,0)) { return; } // 结束
         }
         return ;
@@ -162,8 +162,7 @@ private:
         TreeNode* sentences =  new TreeNode(SENTENCE_COMPOUND);
         root->children.push_back(sentences);
         parser_sentence_compound(sentences);
-        // 缺少return
-        if(returnVid!=VARVOID && returnVec.size()==0){
+        if(returnVid!=VARVOID && returnVec.size()==0){ // 有返回值的函数无任何返回语句
             ehandler.error(currToken,funcWithReturn);
         }
         // }
@@ -185,9 +184,8 @@ private:
         // 其他函数要记录参数表
         TreeNode* args = new TreeNode(LIST_ARGUMENT);
         root->children.push_back(args);
-        // FIXME: save_currLineNumber是否能判断边界
         int save_currLineNumber = currToken.line; // 应该在同一行解决
-        while(!currMatch(RSMALL,0) && currToken.line==save_currLineNumber){
+        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && currToken.line==save_currLineNumber){
             Variable v;
             // 标识符
             if(!currMatch(INTTK,0) && !currMatch(CHARTK,0)) {  ehandler.errorUnkown(currToken, "缺少类型标识符"); }
@@ -223,25 +221,26 @@ private:
         // 值参数表
         TreeNode* args = new TreeNode(LIST_ARGUMENT_VALUE);
         root->children.push_back(args);
-        int idx=0; // 索引
+        int idx=0, argsNumber = f.argsType.size(); // 索引
         int save_currLineNumber = currToken.line;
-        for(auto type : f.argsType){
-            // FIXME: save_currLineNumber是否能判断边界
-            if(currMatch(RSMALL,0) || currToken.line!=save_currLineNumber) break;
+        // 这里应该根据token调用完，再去检查是否符号类型和数量
+        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && currToken.line==save_currLineNumber){
             TreeNode* exp = new TreeNode(EXPRESSION);
             args->children.push_back(exp);
-            idx++;
             VartypeID vid = parser_expression(exp);
-            if(vid != type) ehandler.error(currToken, funcParamsType);
+            if(idx<argsNumber){
+                if(vid != f.argsType[idx]) ehandler.error(currToken, funcParamsType);
+            }
+            idx++;
             // 逗号
             if(currMatch(COMMA,0)){ args->children.push_back(NEWLEAF); NEXTTOKEN; }
             else{ break; }
         }
-        if(idx!=int(f.argsType.size())) { ehandler.error(currToken, funcParamsNumber); }
+        if(argsNumber && idx!=argsNumber) { ehandler.error(currToken, funcParamsNumber); }
         // )
         if(currMatch(RSMALL)){
             root->children.push_back(NEWLEAF); NEXTTOKEN;
-        }else if(currMatch(LBIG)){
+        }else{
             ehandler.error(currToken, shouldRsmall);
         }
         return;
@@ -298,55 +297,45 @@ private:
             TreeNode* stRead = new TreeNode(SENTENCE_READ);
             st->children.push_back(stRead);
             parser_read(stRead);
-            if(!currMatch(SEMICN)) {ehandler.error(currToken, shouldSEMICN);}
+            if(!currMatch(SEMICN)) {ehandler.error(lastToken, shouldSEMICN);}
             else {st->children.push_back(NEWLEAF); NEXTTOKEN;}
             }break;
         case PRINTFTK:{ // 写语句
             TreeNode* stWrite = new TreeNode(SENTENCE_WRITE);
             st->children.push_back(stWrite);
             parser_write(stWrite);
-            if(!currMatch(SEMICN)) {ehandler.error(currToken, shouldSEMICN);}
+            if(!currMatch(SEMICN)) {ehandler.error(lastToken, shouldSEMICN);}
             else {st->children.push_back(NEWLEAF); NEXTTOKEN;}
             }break;
         case IDENFR: {// 函数调用|赋值
             name = currToken.valueStr;
             // 可能是函数，也可能是变量
-            
-            if(funcTable.find(name)!=funcTable.end()){
-                // 函数调用语句
-                Function& f = funcTable[name];
-                TreeNode* stCallFunc = new TreeNode();
-                st->children.push_back(stCallFunc);
-                parser_callfunc(stCallFunc, f);
-            }else{
+            if(judge_is_assign_or_call(name)){
                 // 赋值语句
                 Variable& v = getVariable(name);
                 if(v.isConst) ehandler.error(currToken,constChange);
                 TreeNode* stAssign = new TreeNode(SENTENCE_ASSIGN);
                 st->children.push_back(stAssign);
                 parser_assign(stAssign,v);
+            }else{
+                // 函数调用语句
+                Function& f = funcTable[name];
+                TreeNode* stCallFunc = new TreeNode();
+                st->children.push_back(stCallFunc);
+                parser_callfunc(stCallFunc, f);
             }
             // 分号
-            if(!currMatch(SEMICN)) {ehandler.error(currToken, shouldSEMICN);}
+            if(!currMatch(SEMICN)) {ehandler.error(lastToken, shouldSEMICN);}
             else {st->children.push_back(NEWLEAF); NEXTTOKEN;}
             }break;
         case RETURNTK:{ // 返回语句
             TreeNode* stR = new TreeNode(SENTENCE_RETURN);
             st->children.push_back(stR);
             parser_return(stR);
-            if(!currMatch(SEMICN)) {ehandler.error(currToken, shouldSEMICN);}
+            if(!currMatch(SEMICN)) {ehandler.error(lastToken, shouldSEMICN);}
             else {st->children.push_back(NEWLEAF); NEXTTOKEN;}
             }break;
         case SEMICN:{ // 空语句
-            /* 
-            // 需要空语句
-            TreeNode* stNULL = new TreeNode(SENTENCE_NULL);
-            st->children.push_back(stNULL);
-            // 分号
-            if(!currMatch(SEMICN,0)) {ehandler.error(currToken,shouldSEMICN);return;}
-            else { st->children.push_back(NEWLEAF); NEXTTOKEN;} 
-            */
-            // 不需要空标识
             st->children.push_back(NEWLEAF); NEXTTOKEN; 
             }break;
         case SWITCHTK: {// 情况语句
@@ -366,9 +355,24 @@ private:
         default:
             root->children.pop_back();
             delete st;
+            NEXTTOKEN;
             ehandler.errorUnkown(currToken, "未知的sentence");
             break;
         }
+    }
+
+    bool judge_is_assign_or_call(string name){ // 函数调用|赋值
+        bool varFlag = false;
+        if(varTableCurrP->find(name)!=varTableCurrP->end() || varStaticTable.find(name)!=varStaticTable.end()){
+            // 先检查变量
+            varFlag = true;
+        }else if(funcTable.find(name)!=funcTable.end()){
+            // 再检查函数
+        }else{
+            // 都没有，则新建变量
+            varFlag = true;
+        }
+        return varFlag;
     }
 
     void parser_switch(TreeNode* root){ // 情况语句
@@ -400,7 +404,7 @@ private:
     }
 
     void parser_list_case(TreeNode* root, VartypeID vid){ // 情况表
-        while(!currMatch(DEFAULTTK,0)){
+        while(!currMatch(DEFAULTTK,0) && !currMatch(RBIG,0)){
             TreeNode* node = new TreeNode(SENTENCE_SWITCH_SUB);
             root->children.push_back(node);
             parser_case(node,vid);
@@ -436,18 +440,22 @@ private:
     }
     
     void parser_return(TreeNode* root){ // 返回语句
+        // TODO: lab3_testfile9_funcWithReturn
         if(!currMatch(RETURNTK,0)){ return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 左括号
-        if(!currMatch(LSMALL,0)) { return; }
-        else{ 
+        if(!currMatch(LSMALL,0)) {  // 形如return;的语句
+            if(returnVid != VARVOID) ehandler.error(currToken,funcWithReturn);
+            returnVec.push_back(returnVid); // 标志进入过return语句
+            return; 
+        }else{ 
             // 判返回值
-            if(returnVid == VARVOID){
-                ehandler.error(currToken,funcNoReturn);
-            }
+            if(returnVid == VARVOID){ ehandler.error(currToken,funcNoReturn); }
             root->children.push_back(NEWLEAF); NEXTTOKEN; 
         }
-        if(currMatch(RSMALL)) {  // 空返回
+        if(currMatch(RSMALL)) {  // 形如return();的语句
+            if(returnVid != VARVOID) ehandler.error(currToken,funcWithReturn);
+            returnVec.push_back(returnVid); // 标志进入过return语句
             root->children.push_back(NEWLEAF); NEXTTOKEN;
             return;
         }
@@ -455,7 +463,7 @@ private:
         TreeNode* exp = new TreeNode(EXPRESSION);
         root->children.push_back(exp);
         VartypeID vid = parser_expression(exp);
-        if(vid!=returnVid){
+        if(returnVid!=VARVOID && vid!=returnVid){ // return语句中表达式类型与返回值类型不一致
             ehandler.error(currToken,funcWithReturn);
         }
         returnVec.push_back(vid);
@@ -575,9 +583,12 @@ private:
         // 左括号
         if(!currMatch(LSMALL)) { ehandler.errorUnkown(currToken, "没有匹配到("); }
         else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
-        // 标识符 // TODO 注意识别变量
+        // 标识符
         if(!currMatch(IDENFR)){ ehandler.errorUnkown(currToken, "缺少命名标识符"); }
-        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        else { 
+            getVariable(currToken.valueStr); // 注意识别变量
+            root->children.push_back(NEWLEAF); NEXTTOKEN; 
+        }
         // =
         if(!currMatch(ASSIGN)){ ehandler.errorUnkown(currToken, "没有匹配到="); }
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
@@ -586,14 +597,14 @@ private:
         root->children.push_back(expression); 
         parser_expression(expression); // 解析表达式
         // 分号
-        if(!currMatch(SEMICN)){ ehandler.error(currToken, shouldSEMICN); }
+        if(!currMatch(SEMICN)){ ehandler.error(lastToken, shouldSEMICN); }
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // 条件
         TreeNode* condition = new TreeNode(CONDITION);
         root->children.push_back(condition);
         parser_condition(condition); // 解析条件
         // 分号
-        if(!currMatch(SEMICN)){ ehandler.error(currToken, shouldSEMICN); }
+        if(!currMatch(SEMICN)){ ehandler.error(lastToken, shouldSEMICN); }
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // 标识符
         if(!currMatch(IDENFR)){ { ehandler.errorUnkown(currToken, "缺少命名标识符"); } }
@@ -664,7 +675,7 @@ private:
         TreeNode* exp2 = new TreeNode(EXPRESSION);
         root->children.push_back(exp2);
         VartypeID vid2 = parser_expression(exp2);
-        if(vid1!=vid2) ehandler.error(currToken,illegalCondition);
+        if(vid1!=VARINT || vid2!=VARINT) ehandler.error(currToken,illegalCondition);
     }
 
     VartypeID parser_expression(TreeNode* root){ // ＜表达式＞ ::= ［＋｜－］＜项＞{＜加法运算符＞＜项＞}
@@ -680,8 +691,7 @@ private:
             root->children.push_back(NEWLEAF);NEXTTOKEN;
             TreeNode* term = new TreeNode(FACTOR);
             root->children.push_back(term);
-            VartypeID t = parser_term(term);
-            vid = (vid==VARINT)?vid:t;
+            parser_term(term);
         }
         return vid;
     }
@@ -696,7 +706,7 @@ private:
             root->children.push_back(NEWLEAF);NEXTTOKEN;
             TreeNode* factor = new TreeNode(FACTOR);
             root->children.push_back(factor);
-            vid = parser_factor(factor);
+            parser_factor(factor);
         }
         return vid;
     }
@@ -723,14 +733,7 @@ private:
             return VARCHAR;
         }else if(currMatch(IDENFR,0)){
             string name = currToken.valueStr;
-            if(funcTable.find(name)!=funcTable.end()){
-                Function& f = funcTable[name];
-                // 函数调用
-                TreeNode* node = new TreeNode();
-                root->children.push_back(node);
-                parser_callfunc(node,f);
-                return f.returnType;
-            }else{
+            if(judge_is_assign_or_call(name)){
                 Variable& v = getVariable(name);
                 // 标识符
                 root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -754,10 +757,16 @@ private:
                 }
                 if(v.varType==VARINT || v.varType==VARINT1D || v.varType==VARINT2D) return VARINT;
                 else return VARCHAR;
+            }else{
+                Function& f = funcTable[name];
+                // 函数调用
+                TreeNode* node = new TreeNode();
+                root->children.push_back(node);
+                parser_callfunc(node,f);
+                return f.returnType;
             }
-        }else {
-            return VARVOID;
         }
+        return vid;
     }
 
     void parser_var_define(TreeNode* root, TokenID defineType){ // root=变量定义有无初始化
@@ -846,7 +855,7 @@ private:
         if(!currMatch(INTTK,0) && !currMatch(CHARTK,0)) { return; }
         parser_const_define(node, currToken.type); 
         // 当前已经处理到了分号
-        if(!currMatch(SEMICN)){ ehandler.error(currToken, shouldSEMICN);}
+        if(!currMatch(SEMICN)){ ehandler.error(lastToken, shouldSEMICN); return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 判断下一个是不是const
         if(currMatch(CONSTTK,0)) parser_const_declare(root);
@@ -864,7 +873,7 @@ private:
             v.varType = VARCHAR; v.size = sizeof(char);
             root->children.push_back(NEWLEAF); NEXTTOKEN;
         }
-        else ehandler.errorUnkown(currToken,"不合法常量类型"); // FIXME: 这里没有push_back
+        else ehandler.errorUnkown(currToken,"不合法常量类型");
         if(!currMatch(IDENFR)) { return; }
         v.name = currToken.valueStr;
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -965,7 +974,7 @@ private:
         if(!currMatch(LBIG)) {return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         int i=0;
-        for(;i<d;i++){
+        while(1){
             if(i){
                 if(!currMatch(COMMA)){ break; }
                 root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -980,6 +989,7 @@ private:
                 ehandler.errorUnkown(currToken,"未知常量类型");
             }
             ++arrayIdx;
+            ++i;
         }
         if(i!=d) {ehandler.error(currToken, arrayCntError);}
         if(currMatch(RBIG)) { root->children.push_back(NEWLEAF); NEXTTOKEN; }

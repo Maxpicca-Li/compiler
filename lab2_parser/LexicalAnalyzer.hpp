@@ -76,6 +76,15 @@ public:
         return this->tokens[this->currIdx++];
     }
 
+    Token peekToken(){
+        int tmp = currIdx+1;
+        if(tmp==this->tot) {
+            cout << "到底了~，无法peek下一个Token,返回最后一个Token"<<endl;
+            tmp -= 1;
+        }
+        return this->tokens[tmp];
+    }
+
     bool roll_back_currIdx(){
         this->currIdx--;
         if(currIdx<0) {
