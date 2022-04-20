@@ -692,6 +692,7 @@ private:
             TreeNode* term = new TreeNode(FACTOR);
             root->children.push_back(term);
             parser_term(term);
+            vid = VARINT;
         }
         return vid;
     }
@@ -707,6 +708,7 @@ private:
             TreeNode* factor = new TreeNode(FACTOR);
             root->children.push_back(factor);
             parser_factor(factor);
+            vid = VARINT;
         }
         return vid;
     }
