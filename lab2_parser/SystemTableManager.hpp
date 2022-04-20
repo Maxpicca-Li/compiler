@@ -62,7 +62,6 @@ struct Function{
     VartypeID returnType;
     map<string, Variable> varTable;
 };
+// 能否合并Function和Variable
 map<string, Function> funcTable;
 map<string, Variable> varStaticTable;
-// TODO: 缺乏语句块中的变量 ==> 暂时一个函数对应一张表吧
-// 语句块中的变量表，应该是一颗变量树

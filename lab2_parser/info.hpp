@@ -7,6 +7,7 @@ const int strCode = 1;
 const int intCode = 2;
 const int charCode = 3;
 const int illegalCode = 4;
+const char defaultChar = '0';
 
 enum TokenID{
     // value

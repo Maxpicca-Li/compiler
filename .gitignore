@@ -41,7 +41,7 @@ build/
 *.txt
 test*.*
 # self define: dir
-data/
+*data/
 output/
 doc/
 ref/

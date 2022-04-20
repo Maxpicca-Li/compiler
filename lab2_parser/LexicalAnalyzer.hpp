@@ -4,6 +4,13 @@
 #include "ErrorHandler.hpp"
 using namespace std;
 
+inline bool isChar(char c){
+    return isalnum(c) || (c=='_') || (c=='+') || (c=='-') || (c=='*') || (c=='/');
+}
+
+inline bool isStrChar(char c){
+    return (c>=35&&c<=126) || (c==32) || (c==33);
+}
 
 class LexicalAnalyzer{
 private:
@@ -16,19 +23,11 @@ private:
     
 public:
     Token currToken;
-    LexicalAnalyzer(){}
-
-    /* LexicalAnalyzer(string inFile){
-        ifp.open(inFile, ios::binary);  // 因为涉及到字节回退，这里最好是binary打开
-        init_TokenID_str();
-    } */
-
-    ~LexicalAnalyzer(){
-        ifp.close();
-    }
-
+    
     void init(string inFile){
-        ifp.open(inFile, ios::binary);  // 因为涉及到字节回退，这里最好是binary打开
+        if(inFile!="") ifp.open(inFile, ios::binary);  // 因为涉及到字节回退，这里最好是binary打开
+        ifp.seekg(ios::beg);
+        tokens.clear();
     }
 
     void doLexer(){
@@ -67,17 +66,6 @@ public:
     inline void roll_back(long n){
         ifp.seekg(n,ios::cur);
     }
-
-    /* void getTokens(){
-        ifp.seekg(ios::beg);
-        while(!ifp.eof()){
-            next();
-            Token t = currToken;
-            tokens.push_back(t);
-            ++this->tot;
-        }   
-        ifp.seekg(ios::beg);
-    } */
 
     Token nextToken(){
         int tmp = currIdx;
@@ -123,37 +111,22 @@ private:
             }
             genToken(srcStr, intCode);
             roll_back(-1);
-        }else if(ch=='='){ // 赋值
-            while(ch=='='){ // 可能的逻辑运算 ==
-                srcStr+=ch;
-                getch();
-            }
-            genToken(srcStr, specialStrCode);
-            roll_back(-1);
-        }else if(ch=='+'){ // 数字运算，单独写，为了后续方便运算标识
-            srcStr+=ch;
-            genToken(srcStr, specialStrCode);
-        }else if(ch=='-'){
-            srcStr+=ch;
-            genToken(srcStr, specialStrCode);
-        }else if(ch=='*'){
-            srcStr+=ch;
-            genToken(srcStr, specialStrCode);
-        }else if(ch=='/'){
+        }else if(ch=='+' || ch=='-' || ch=='*' || ch=='/' || ch==';' || ch==',' || ch==':'){ // 单符号
             srcStr+=ch;
             genToken(srcStr, specialStrCode);
         }else if(ch=='!'){ // 逻辑运算
             srcStr+=ch;
             getch();
             if(ch != '='){  // !=
-                error(currLineNumber,currCol, illegalLexcial);
+                // 非法符号
+                ehandler.error(currLineNumber,currCol, illegalLexcial);
+                srcStr+='='; // 错误处理，加上非法符号
                 roll_back(-1);
-                return;
             }else{
-                srcStr+=ch;
-                genToken(srcStr, specialStrCode);
+                srcStr+=ch;    
             }
-        }else if(ch=='<'){
+            genToken(srcStr, specialStrCode);
+        }else if(ch=='<' || ch=='>' || ch=='='){
             srcStr+=ch;
             getch();
             if(ch == '='){  // <=
@@ -162,95 +135,79 @@ private:
                 roll_back(-1);
             }
             genToken(srcStr, specialStrCode);
-        }else if(ch=='>'){
-            srcStr+=ch;
-            getch();
-            if(ch == '='){ // <=
-                srcStr+=ch;
-            }else{
-                roll_back(-1);
-            }
-            genToken(srcStr, specialStrCode);
-        }else if(ch==';' || ch==',' || ch==':'){ // 标点符号
-            srcStr+=ch;
-            genToken(srcStr, specialStrCode);
         }else if(ch=='\"'){ // strcon
-            int save_currLineNumber = currLineNumber;
-            int save_currCol = currCol;
             char lastch = ch;
             while(true){  // ", 成对处理
                 getch();
-                if(lastch!='\\' && ch=='\"') {
+                if(lastch=='\"' && ch=='\"'){ // 空字符串
+                    ehandler.error(currLineNumber, currCol, illegalLexcial);
+                    srcStr += defaultChar;
                     break;
-                }else if(ch=='\n'){
-                    error(save_currLineNumber, save_currCol, illegalLexcial);
+                }
+                if(lastch!='\\' && ch=='\"') { // 正常退出
                     break;
+                }else if(!isStrChar(ch)) { // 非法符号
+                    ehandler.error(currLineNumber, currCol, illegalLexcial);
+                    ch = defaultChar;
                 }
                 srcStr+=ch;
                 lastch = ch;
             }
             genToken(srcStr,strCode);
-        }else if(ch=='\''){ // charcon
-            if(ch=='\\'){ // 转义字符
-                getch();
-                if(isdigit(ch)) ch=ch-'0';
-            }else{
-                getch(); 
+        }else if(ch=='\''){      // charcon
+            getch();             // 这里不会涉及转义字符
+            if(ch=='\'') {       // 符号串中无字符
+                ehandler.error(currLineNumber, currCol, illegalLexcial);
+                ch = defaultChar;
+                srcStr += ch; 
+                genToken(srcStr,charCode);
+            }else if(!isChar(ch)){ // 符号串为非法字符
+                ehandler.error(currLineNumber, currCol, illegalLexcial);
+                ch = defaultChar;
             }
-            srcStr += ch;
+            srcStr += ch; 
             getch();
-            if(ch!='\''){  // 判断：一个完整的字符,且只有一个字符
-                error(currLineNumber, currCol, illegalLexcial);
+            if(ch!='\''){
+                ehandler.errorUnkown(currLineNumber, currCol, "少了一单引号");
                 roll_back(-1);
-                return;
             }
             genToken(srcStr,charCode);
-        }else if(ch=='('){ // 小括号
+        }else if(ch=='(' || ch=='[' || ch=='{'){ // 括号
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber,currCol});
-        }else if(ch=='{'){ // 大括号
-            srcStr+=ch;
-            genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber,currCol});
-        }else if(ch=='['){ // 中括号
-            srcStr+=ch;
-            genToken(srcStr,specialStrCode);
-            leftBrack_LN.push({ch,currLineNumber,currCol});
+            // 这里不做匹配判断，由语法分析做
+            // leftBrack_LN.push({ch,currLineNumber,currCol});
         }else if(ch==')'){
-            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
+            /* 
             char nearBrack = get<0>(leftBrack_LN.top());  // 匹配判断
-            if(nearBrack!='(') error(save_currLineNumber,save_currCol,shouldRsmall);
+            if(nearBrack!='(') ehandler.error(currLineNumber,currCol,shouldRsmall);
             else leftBrack_LN.pop();
+            */
         }else if(ch==']'){
-            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
+            /* 
             char nearBrack = get<0>(leftBrack_LN.top());  // 匹配判断
-            if(nearBrack!='[') error(save_currLineNumber,save_currCol,shouldRmid);
-            else leftBrack_LN.pop();
+            if(nearBrack!='[') ehandler.error(currLineNumber,currCol,shouldRmid);
+            else leftBrack_LN.pop(); 
+            */
         }else if(ch=='}'){
-            int save_currLineNumber = currLineNumber, save_currCol = currCol;
             srcStr+=ch;
             genToken(srcStr,specialStrCode);
-            // 一段的结束
+            /* // 一段的结束
             while(!leftBrack_LN.empty() && get<0>(leftBrack_LN.top())!='{') {
-                error(get<1>(leftBrack_LN.top()), get<2>(leftBrack_LN.top()), illegalLexcial);
+                ehandler.error(get<1>(leftBrack_LN.top()), get<2>(leftBrack_LN.top()), illegalLexcial);
                 leftBrack_LN.pop();
             }
             if(leftBrack_LN.empty() || get<0>(leftBrack_LN.top())!='{'){
-                error(save_currLineNumber,save_currCol, illegalLexcial);
+                ehandler.error(currLineNumber,currCol, illegalLexcial);
             }else{
                 leftBrack_LN.pop();
             }
+            */
         }
-        // FIXME 重构
-        // else{
-        //     srcStr+=ch;
-        //     genToken(srcStr,illegalCode);
-        // }
     }
 
     /* 根据getsym的结果，进行判断 */
@@ -285,7 +242,7 @@ private:
         currToken.line = currLineNumber;
         currToken.col = currCol;
         currToken.type = tokenId;
-        currToken.valueStr = srcStr;
+        currToken.valueStr = copyStr; // 需要都转为小写
         
         // FIXME: 重构
         Token t = currToken;
