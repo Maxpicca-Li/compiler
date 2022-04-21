@@ -251,7 +251,7 @@ private:
         currToken.line = currLineNumber;
         currToken.col = currCol;
         currToken.type = tokenId;
-        currToken.valueStr = copyStr; // 需要都转为小写
+        currToken.valueStr = srcStr; // 需要都转为小写
         
         // FIXME: 重构
         Token t = currToken;

@@ -92,7 +92,7 @@ private:
                 f.name = currToken.valueStr;
                 funcDefine->children.push_back(NEWLEAF); NEXTTOKEN;
                 addFunction(f);
-                parser_func_define(funcDefine,funcTable[f.name]);  // return时, 已经读取到了下一个
+                parser_func_define(funcDefine,getFunction(f.name));  // return时, 已经读取到了下一个
             }else{
                 NEXTTOKEN;
             }
@@ -132,7 +132,7 @@ private:
                 root->children.push_back(funcDefine);
                 funcDefine->children.push_back(tmp);
                 addFunction(f);
-                parser_func_define(funcDefine, funcTable[f.name]);
+                parser_func_define(funcDefine, getFunction(f.name));
                 return;
             }
             // root ==> 变量声明 ==> 变量定义 ==> 有无初始化tmp ==> tmp.children
@@ -319,7 +319,7 @@ private:
                 parser_assign(stAssign,v);
             }else{
                 // 函数调用语句
-                Function& f = funcTable[name];
+                Function& f = getFunction(name);
                 TreeNode* stCallFunc = new TreeNode();
                 st->children.push_back(stCallFunc);
                 parser_callfunc(stCallFunc, f);
@@ -359,20 +359,6 @@ private:
             ehandler.errorUnkown(currToken, "未知的sentence");
             break;
         }
-    }
-
-    bool judge_is_assign_or_call(string name){ // 函数调用|赋值
-        bool varFlag = false;
-        if(varTableCurrP->find(name)!=varTableCurrP->end() || varStaticTable.find(name)!=varStaticTable.end()){
-            // 先检查变量
-            varFlag = true;
-        }else if(funcTable.find(name)!=funcTable.end()){
-            // 再检查函数
-        }else{
-            // 都没有，则新建变量
-            varFlag = true;
-        }
-        return varFlag;
     }
 
     void parser_switch(TreeNode* root){ // 情况语句
@@ -760,7 +746,7 @@ private:
                 if(v.varType==VARINT || v.varType==VARINT1D || v.varType==VARINT2D) return VARINT;
                 else return VARCHAR;
             }else{
-                Function& f = funcTable[name];
+                Function& f = getFunction(name);
                 // 函数调用
                 TreeNode* node = new TreeNode();
                 root->children.push_back(node);
@@ -1019,6 +1005,21 @@ private:
         }
     }
 
+    bool judge_is_assign_or_call(string name){ // 函数调用|赋值
+        bool varFlag = false;
+        for(char& ch:name) ch = tolower(ch);
+        if(varTableCurrP->find(name)!=varTableCurrP->end() || varStaticTable.find(name)!=varStaticTable.end()){
+            // 先检查变量
+            varFlag = true;
+        }else if(funcTable.find(name)!=funcTable.end()){
+            // 再检查函数
+        }else{
+            // 都没有，则新建变量
+            varFlag = true;
+        }
+        return varFlag;
+    }
+
     void deleteRoot(TreeNode* root){
         if(root==NULL) return;
         for(auto tn:root->children){
@@ -1029,6 +1030,7 @@ private:
 
     void addFunction(Function f){
         // funcTable & varStaticTable
+        for(char& ch:f.name) ch = tolower(ch);
         if(funcTable.find(f.name)!=funcTable.end() || varStaticTable.find(f.name)!=varStaticTable.end()){ // 名字重定义
             ehandler.error(currToken, redefined);
         }
@@ -1041,6 +1043,7 @@ private:
 
     void addVariable(Variable v){
         // varTableCurrP 只看当前表 (无需比较函数表)
+        for(char& ch:v.name) ch = tolower(ch);
         if(varTableCurrP->find(v.name)!=varTableCurrP->end()){ // 名字重定义
             ehandler.error(currToken, redefined);
             varTableCurrP->find(v.name)->second = v;
@@ -1049,8 +1052,14 @@ private:
         }
     }
 
+    Function& getFunction(string name){
+        for(char& ch:name) ch = tolower(ch);
+        return funcTable[name];
+    }
+
     Variable& getVariable(string name){
         // 这里由先后顺序
+        for(char& ch:name) ch = tolower(ch);
         if(varTableCurrP->find(name)!=varTableCurrP->end()) return varTableCurrP->find(name)->second; 
         else if(varStaticTable.find(name)!=varStaticTable.end()) return varStaticTable[name];
         else {
