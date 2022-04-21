@@ -185,7 +185,7 @@ private:
         TreeNode* args = new TreeNode(LIST_ARGUMENT);
         root->children.push_back(args);
         int save_currLineNumber = currToken.line; // 应该在同一行解决
-        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && currToken.line==save_currLineNumber){
+        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && !currMatch(LBIG,0) && currToken.line==save_currLineNumber){
             Variable v;
             // 标识符
             if(!currMatch(INTTK,0) && !currMatch(CHARTK,0)) {  ehandler.errorUnkown(currToken, "缺少类型标识符"); }
@@ -206,7 +206,7 @@ private:
             else{ break; }
         }
         if(currMatch(RSMALL)){ root->children.push_back(NEWLEAF); NEXTTOKEN; }
-        else { ehandler.error(currToken.col, currToken.col, shouldRsmall);}
+        else { ehandler.error(currToken, shouldRsmall);}
         return;
     }
 
@@ -224,7 +224,7 @@ private:
         int idx=0, argsNumber = f.argsType.size(); // 索引
         int save_currLineNumber = currToken.line;
         // 这里应该根据token调用完，再去检查是否符号类型和数量
-        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && currToken.line==save_currLineNumber){
+        while(!currMatch(RSMALL,0) && !currMatch(SEMICN,0) && !currMatch(LBIG,0) && currToken.line==save_currLineNumber){
             TreeNode* exp = new TreeNode(EXPRESSION);
             args->children.push_back(exp);
             VartypeID vid = parser_expression(exp);
@@ -236,7 +236,7 @@ private:
             if(currMatch(COMMA,0)){ args->children.push_back(NEWLEAF); NEXTTOKEN; }
             else{ break; }
         }
-        if(argsNumber && idx!=argsNumber) { ehandler.error(currToken, funcParamsNumber); }
+        if(idx!=argsNumber) { ehandler.error(currToken, funcParamsNumber); }
         // )
         if(currMatch(RSMALL)){
             root->children.push_back(NEWLEAF); NEXTTOKEN;

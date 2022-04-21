@@ -36,7 +36,7 @@ void test(string inFile, string outFile, string errFile=""){
 void testAll(){
     string inFile, outFile, errFile;
     for(int i=2;i<=2;i++){
-        for(int j=10;j<=10;j++){
+        for(int j=1;j<=10;j++){
             time_t s = clock();
             // inFile = "../data/"+to_string(i)+"/testfile"+to_string(j)+".txt";
             // outFile = "../data/"+to_string(i)+"/myOutput"+to_string(j)+".txt";
@@ -53,7 +53,7 @@ void testAll(){
 }
 
 int main(){ 
-    // testAll();
-    test(inFile, outFile, errFile);
+    testAll();
+    // test(inFile, outFile, errFile);
     return 0;
 }
