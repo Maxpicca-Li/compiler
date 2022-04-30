@@ -30,6 +30,10 @@ public:
         tokens.clear();
     }
 
+    ~LexicalAnalyzer(){
+        ifp.close();
+    }
+
     void doLexer(){
         tokens.clear();
         ifp.seekg(ios::beg);

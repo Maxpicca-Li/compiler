@@ -11,11 +11,16 @@ using namespace std;
     const string inFile = "testfile.txt";
     const string outFile = "output.txt";
     const string errFile = "error.txt";
+    const string jsonFile = "test.json";
 #else
     string idx = "1"; 
-    const string inFile = "./edata/" + idx + "/testfile" + idx + ".txt";
-    const string outFile = "./edata/" + idx + "/goutput" + idx + ".txt";
-    const string errFile = "./edata/" + idx + "/eoutput" + idx + ".txt";
+    // const string inFile = "./edata/" + idx + "/testfile" + idx + ".txt";
+    // const string outFile = "./edata/" + idx + "/goutput" + idx + ".txt";
+    // const string errFile = "./edata/" + idx + "/eoutput" + idx + ".txt";
+    const string inFile = "./gdata/" + idx + "_gcase.txt";
+    const string outFile = string("./gdata/") + "M_" + idx + "_goutput.txt";
+    const string errFile = string("./edata/") + "M_" + idx + "_eoutput.txt";
+    const string jsonFile = "tree.json";
 #endif
 
 void init(){
@@ -24,13 +29,14 @@ void init(){
     funcTable.clear();
 }
 
-void test(string inFile, string outFile, string errFile=""){
+void test(string inFile, string outFile="", string errFile="", string jsonFile=""){
     init();
     cout << inFile << " " << outFile << " " << errFile << endl;
-    GrammarAnalyzer parser(inFile, outFile);
+    GrammarAnalyzer parser(inFile);
     parser.doParser();
-    parser.print_res();
+    if(outFile!="") parser.print_res(outFile);
     if(errFile!="") ehandler.printError(errFile);
+    if(jsonFile!="") parser.print_json(jsonFile);
 }
 
 void testAll(){
@@ -53,7 +59,7 @@ void testAll(){
 }
 
 int main(){ 
-    testAll();
-    // test(inFile, outFile, errFile);
+    // testAll();
+    test(inFile, outFile, errFile, jsonFile);
     return 0;
 }

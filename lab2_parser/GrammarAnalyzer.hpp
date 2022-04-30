@@ -23,6 +23,9 @@ class GrammarAnalyzer{
 /* 有关宏定义，懒懒懒 */
 #define NEXTTOKEN lastToken=currToken; currToken=lexer.nextToken()
 #define NEWLEAF new TreeNode(currToken)
+#define varName(x) #x
+#define printExp(exp) cout<<#exp<<"为:\t\t"<<(exp)<<endl
+#define printExpToString(exp) cout<<(string(#exp)+"为:\t\t")<<(exp).toString()<<endl //注意exp加括号更安全
 
 private:
     LexicalAnalyzer lexer;
@@ -35,10 +38,9 @@ private:
     vector<VartypeID> returnVec;
 
 public:
-    GrammarAnalyzer(string inFile, string outFile){
+    GrammarAnalyzer(string inFile){
         this->lexer.init(inFile);
         this->lexer.doLexer();
-        this->ofp.open(outFile);
         this->varTableCurrP = &varStaticTable;
         // this->lexer.printAllTokens();
     }
@@ -46,7 +48,6 @@ public:
     ~GrammarAnalyzer(){
         deleteRoot(root);
         varTableCurrP=NULL;
-        this->ofp.close();
     }
     
     /* 语法分析，建立语法树的过程 */    
@@ -58,12 +59,23 @@ public:
         parser_program(root);
     }
 
-    void print_res(){
+    void print_res(string outFile){
+        this->ofp.open(outFile);
         __print_res(root);
+        this->ofp.close();
+    }
+
+    void print_json(string outFile){
+        this->ofp.open(outFile);
+        this->ofp << "[{"<<endl;
+        __print_json(root);
+        this->ofp << "\n}]"<<endl;
+        this->ofp.close();
     }
 
 private:
 
+    /* ＜程序＞ ::= ［＜常量说明＞］［＜变量说明＞］{＜有返回值函数定义＞|＜无返回值函数定义＞}＜主函数＞ */
     void parser_program(TreeNode* root){
         NEXTTOKEN;
         while(!lexer.isEnd()){
@@ -152,11 +164,12 @@ private:
         return ;
     }
 
-    void parser_func_define(TreeNode* root, Function& f){ // 有|无返回值函数定义
+    /* 有|无返回值函数定义 */
+    void parser_func_define(TreeNode* root, Function& f){
         // 匹配参数表
         parser_arguments(root,f); 
         // {
-        if(!currMatch(LBIG)) { ehandler.errorUnkown(currToken,"应该为{"); return;}
+        if(!currMatch(LBIG)) { ehandler.errorUnkown(currToken,"没有匹配到{"); return;}
         root->children.push_back(NEWLEAF);NEXTTOKEN;
         // 复合语句
         TreeNode* sentences =  new TreeNode(SENTENCE_COMPOUND);
@@ -166,12 +179,13 @@ private:
             ehandler.error(currToken,funcWithReturn);
         }
         // }
-        if(!currMatch(RBIG)) { ehandler.errorUnkown(currToken,"应该为}"); return;}
+        if(!currMatch(RBIG)) { ehandler.errorUnkown(currToken,"没有匹配到}"); return;}
         root->children.push_back(NEWLEAF);NEXTTOKEN;
         return;
     }
 
-    void parser_arguments(TreeNode* root, Function& f){ // 有|无返回值函数定义
+    /* 有|无返回值函数定义->参数表：'('＜参数表＞')' */
+    void parser_arguments(TreeNode* root, Function& f){
         // (
         if(!currMatch(LSMALL,0)) return;
         root->children.push_back(NEWLEAF);NEXTTOKEN;
@@ -210,7 +224,8 @@ private:
         return;
     }
 
-    void parser_callfunc(TreeNode* root, Function& f){ // 函数调用 ==> *(值参数列表)
+    /* 函数调用 ==> ＜标识符＞'('＜值参数表＞')' */
+    void parser_callfunc(TreeNode* root, Function& f){
         root->stateId = (f.returnType==VARVOID)?SENTENCE_CALLFUNC:SENTENCE_CALLFUNC_RETURN;
         // 标识符
         if(!currMatch(IDENFR)) return;
@@ -246,7 +261,8 @@ private:
         return;
     }
 
-    void parser_sentence_compound(TreeNode* root) { // ＜复合语句＞   ::=  ［＜常量说明＞］［＜变量说明＞］＜语句列＞
+    /* ＜复合语句＞::=［＜常量说明＞］［＜变量说明＞］＜语句列＞ */
+    void parser_sentence_compound(TreeNode* root) {
         while(!currMatch(RBIG,0)) {
             if(currMatch(CONSTTK,0)){
                 // 常量声明
@@ -264,7 +280,8 @@ private:
         return;
     }
 
-    void parser_sentence_multi(TreeNode* root){ // 复合语句==>语句列
+    /* 复合语句==>语句列 */
+    void parser_sentence_multi(TreeNode* root){ 
         TreeNode* node1 = new TreeNode(SENTENCE_MULTI);
         root->children.push_back(node1);
         while(!currMatch(RBIG,0)){
@@ -272,7 +289,8 @@ private:
         }
     }
 
-    void parser_sentences(TreeNode* root) { // 语句列==>具体的语句
+    /* 语句列==>具体的语句 */
+    void parser_sentences(TreeNode* root) { 
         TreeNode* st = new TreeNode(SENTENCE);
         root->children.push_back(st);
         string name;
@@ -361,7 +379,8 @@ private:
         }
     }
 
-    void parser_switch(TreeNode* root){ // 情况语句
+    /* ＜情况语句＞::= switch '('＜表达式＞')' '{'＜情况表＞＜缺省＞'}'  */
+    void parser_switch(TreeNode* root){
         if(!currMatch(SWITCHTK,0)){ return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 左括号
@@ -389,7 +408,8 @@ private:
         return;
     }
 
-    void parser_list_case(TreeNode* root, VartypeID vid){ // 情况表
+    /* ＜情况表＞ ::= ＜情况子语句＞{＜情况子语句＞} */
+    void parser_list_case(TreeNode* root, VartypeID vid){
         while(!currMatch(DEFAULTTK,0) && !currMatch(RBIG,0)){
             TreeNode* node = new TreeNode(SENTENCE_SWITCH_SUB);
             root->children.push_back(node);
@@ -398,7 +418,8 @@ private:
 
     }
 
-    void parser_case(TreeNode* root, VartypeID vid){ // 情况子语句
+    /* ＜情况子语句＞  ::=  case＜常量＞：＜语句＞  */
+    void parser_case(TreeNode* root, VartypeID vid){ 
         // case
         if(!currMatch(CASETK)) { ehandler.errorUnkown(currToken, "不合法parser_case"); return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -411,7 +432,8 @@ private:
         parser_sentences(root);
     }
 
-    void parser_switch_default(TreeNode* root){ // 缺省
+    /* ＜缺省＞::=default :＜语句＞ */
+    void parser_switch_default(TreeNode* root){
         if(!currMatch(DEFAULTTK)) {ehandler.error(currToken, lackDeafult); return;}
         // 缺省
         TreeNode* node = new TreeNode(SENTENCE_SWITCH_DEFAULT);
@@ -425,7 +447,8 @@ private:
         parser_sentences(node);
     }
     
-    void parser_return(TreeNode* root){ // 返回语句
+    /* ＜返回语句＞   ::=  return['('＜表达式＞')']    */
+    void parser_return(TreeNode* root){
         // TODO: lab3_testfile9_funcWithReturn
         if(!currMatch(RETURNTK,0)){ return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -459,7 +482,8 @@ private:
         return;
     }
 
-    void parser_write(TreeNode* root){  // 写语句
+    /* ＜写语句＞    ::= printf '(' ＜字符串＞,＜表达式＞ ')'| printf '('＜字符串＞ ')'| printf '('＜表达式＞')'  */
+    void parser_write(TreeNode* root){
         if(!currMatch(PRINTFTK,0)){ ehandler.errorUnkown(currToken, "不合法parser_write"); return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 左括号
@@ -489,7 +513,8 @@ private:
         return;
     }
 
-    void parser_read(TreeNode* root){  // 读语句
+    /* ＜读语句＞    ::=  scanf '('＜标识符＞')'  */
+    void parser_read(TreeNode* root){
         if(!currMatch(SCANFTK,0)){ ehandler.errorUnkown(currToken, "不合法parser_read"); return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 左括号
@@ -509,7 +534,7 @@ private:
     }
 
     /* ＜赋值语句＞ ::= ＜标识符＞＝＜表达式＞|＜标识符＞'['＜表达式＞']'=＜表达式＞|＜标识符＞'['＜表达式＞']''['＜表达式＞']' =＜表达式＞ */
-    void parser_assign(TreeNode* root, Variable& v){ // 赋值语句
+    void parser_assign(TreeNode* root, Variable& v){
         // 标识符
         if(!currMatch(IDENFR,0)) {return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -537,7 +562,8 @@ private:
         }
     }
 
-    void __array_index(TreeNode* root){ // 赋值语句
+    /* 索引解析 ==> [无符号整数] */
+    void __array_index(TreeNode* root){
         // [
         if(!currMatch(LMID)) { ehandler.errorUnkown(currToken, "没有匹配到["); return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -552,7 +578,8 @@ private:
         return;
     }
     
-    void __assign_tail(TreeNode* root){ // 赋值语句
+    /* 赋值语句尾部解析： = 表达式 */
+    void __assign_tail(TreeNode* root){
         // =
         if(!currMatch(ASSIGN)) { ehandler.errorUnkown(currToken, "没有匹配到="); }
         else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
@@ -563,7 +590,8 @@ private:
         return;
     }
 
-    void parser_for(TreeNode* root){ // <循环语句> ==> for'('＜标识符＞＝＜表达式＞;＜条件＞;＜标识符＞＝＜标识符＞(+|-)＜步长＞')'＜语句＞
+    /* <循环语句> ==> for'('＜标识符＞＝＜表达式＞;＜条件＞;＜标识符＞＝＜标识符＞(+|-)＜步长＞')'＜语句＞ */
+    void parser_for(TreeNode* root){ 
         // for
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 左括号
@@ -614,14 +642,16 @@ private:
         parser_sentences(root);
     }
     
-    void parser_while(TreeNode* root){ // <循环语句> ==> while '('＜条件＞')'＜语句＞
+    /* <循环语句> ==> while '('＜条件＞')'＜语句＞ */
+    void parser_while(TreeNode* root){ 
         // while
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 条件语句
         parser_condition_sentence(root);
     }
     
-    void parser_if(TreeNode* root){  // ＜条件语句＞  ::= if '('＜条件＞')'＜语句＞［else＜语句＞］
+    /* ＜条件语句＞  ::= if '('＜条件＞')'＜语句＞［else＜语句＞］ */
+    void parser_if(TreeNode* root){ 
         // if
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 条件语句
@@ -633,7 +663,8 @@ private:
         }
     }
 
-    void parser_condition_sentence(TreeNode* root){  // root ==> '('＜条件＞')'＜语句＞
+    /* 条件 ==> '('＜条件＞')'＜语句＞ */
+    void parser_condition_sentence(TreeNode* root){  // 
         // 左括号
         if(!currMatch(LSMALL)) { ehandler.errorUnkown(currToken, "没有匹配到(");
         }else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
@@ -648,7 +679,8 @@ private:
         parser_sentences(root);
     }
     
-    void parser_condition(TreeNode* root){ // 条件::=＜表达式＞＜关系运算符＞＜表达式＞
+    /* 条件::=＜表达式＞＜关系运算符＞＜表达式＞ */
+    void parser_condition(TreeNode* root){ 
         TreeNode* exp = new TreeNode(EXPRESSION);
         root->children.push_back(exp);
         VartypeID vid1 = parser_expression(exp);
@@ -664,7 +696,8 @@ private:
         if(vid1!=VARINT || vid2!=VARINT) ehandler.error(currToken,illegalCondition);
     }
 
-    VartypeID parser_expression(TreeNode* root){ // ＜表达式＞ ::= ［＋｜－］＜项＞{＜加法运算符＞＜项＞}
+    /* ＜表达式＞ ::= ［＋｜－］＜项＞{＜加法运算符＞＜项＞} */
+    VartypeID parser_expression(TreeNode* root){ 
         root->stateId = EXPRESSION; // 避免之前初始化错误
         VartypeID vid=VARVOID;
         if(currMatch(PLUS,0) || currMatch(MINU,0)){
@@ -683,7 +716,8 @@ private:
         return vid;
     }
 
-    VartypeID parser_term(TreeNode* root){  // ＜项＞::=＜因子＞{＜乘法运算符＞＜因子＞} 
+    /* ＜项＞::=＜因子＞{＜乘法运算符＞＜因子＞}  */
+    VartypeID parser_term(TreeNode* root){  
         root->stateId = TERM; // 避免之前初始化错误
         VartypeID vid;
         TreeNode* factor = new TreeNode(FACTOR);
@@ -699,7 +733,8 @@ private:
         return vid;
     }
 
-    VartypeID parser_factor(TreeNode* root){  // 因子
+    /* ＜因子＞::=＜标识符＞｜＜标识符＞'['＜表达式＞']'|＜标识符＞'['＜表达式＞']''['＜表达式＞']'|'('＜表达式＞')'｜＜整数＞|＜字符＞｜＜有返回值函数调用语句＞ */
+    VartypeID parser_factor(TreeNode* root){
         root->stateId = FACTOR; // 避免之前初始化错误
         VartypeID vid = VARVOID;
         if(currMatch(LSMALL,0)){
@@ -757,7 +792,8 @@ private:
         return vid;
     }
 
-    void parser_var_define(TreeNode* root, TokenID defineType){ // root=变量定义有无初始化
+    /* 变量定义有无初始化 */
+    void parser_var_define(TreeNode* root, TokenID defineType){
         // 类标识符解决了; 标识符第一次判断解决了, ','后的子句判断没解决
         Variable v;
         v.varType = (defineType==INTTK)?VARINT:VARCHAR;
@@ -768,7 +804,7 @@ private:
             v.name = currToken.valueStr;
             root->children.push_back(NEWLEAF); NEXTTOKEN;
         }else{
-            ehandler.errorUnkown(currToken,"ERROR:!!!无法匹配标识符!!!");
+            ehandler.errorUnkown(currToken,"没有匹配到标识符");
         }
         if(currMatch(LMID,0)){  
             // 数组
@@ -815,7 +851,8 @@ private:
         }
     }
 
-    int parser_const(TreeNode* root, VartypeID vid){ // root==> 常量
+    /* 常量 */
+    int parser_const(TreeNode* root, VartypeID vid){
         TreeNode* cst = new TreeNode(CONST);
         root->children.push_back(cst);
         // 整数|字符
@@ -833,7 +870,9 @@ private:
             return 0;
         }
     }
-    void parser_const_declare(TreeNode* root){ // root==>常量说明
+    
+    /* ＜常量说明＞ ::=  const＜常量定义＞;{ const＜常量定义＞;}  */
+    void parser_const_declare(TreeNode* root){ 
         // 判断
         if (!currMatch(CONSTTK)) return;
         root->children.push_back(NEWLEAF);
@@ -849,7 +888,8 @@ private:
         if(currMatch(CONSTTK,0)) parser_const_declare(root);
     }
 
-    void parser_const_define(TreeNode* root, TokenID defineType){ // root ==> 常量定义
+    /* ＜常量定义＞::=int＜标识符＞＝＜整数＞{,＜标识符＞＝＜整数＞}|char＜标识符＞＝＜字符＞{,＜标识符＞＝＜字符＞}   */
+    void parser_const_define(TreeNode* root, TokenID defineType){ 
         // 标识符
         Variable v;
         v.isConst = true;
@@ -884,7 +924,8 @@ private:
         } 
     }
 
-    int parser_int(TreeNode* root, bool unsign=false){ // 有+|-的是整数，没有则为无符号整数
+    /* ＜整数＞ ::= ［＋｜－］＜无符号整数＞ */
+    int parser_int(TreeNode* root, bool unsign=false){ 
         TreeNode* node2 = new TreeNode(UNSIGNED_INT);
         if(!unsign){
             TreeNode* node1 = new TreeNode(INT);
@@ -909,6 +950,7 @@ private:
         return minus ? -res : res;
     }
 
+    /* ＜字符＞ ::=  '＜加法运算符＞'｜'＜乘法运算符＞'｜'＜字母＞'｜'＜数字＞'  */
     char parser_char(TreeNode* root){
         // char
         if(!currMatch(CHARCON)) { ehandler.errorUnkown(currToken, "不合法parser_char"); return 0; }
@@ -917,7 +959,8 @@ private:
         return res;
     }
 
-    void parser_brack(TreeNode* root){ // 叶结点的上方
+    /* array的索引 [x] */
+    void parser_brack(TreeNode* root){
         // [
         if(!currMatch(LMID)) { return; }
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -935,6 +978,7 @@ private:
         }
     }
 
+    /* 数组解析 */
     void parser_array_init(TreeNode* root, TokenID defineType, Variable& v){
         arrayIdx = 0;
         if(arrayB==0){ // 只有一维度
@@ -958,6 +1002,7 @@ private:
         }
     }
     
+    /* array初始化数据 */
     void __array_init(TreeNode* root, int d, TokenID defineType, Variable& v){
         if(!currMatch(LBIG)) {return;}
         root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -984,6 +1029,7 @@ private:
         else { ehandler.errorUnkown(currToken,"没有匹配到}"); }
     }
 
+    /* 当前currToken匹配和校对 */
     bool currMatch(TokenID tId, int log=1){
         if(log){
             /* if(currToken.type!=tId){
@@ -993,19 +1039,8 @@ private:
         return (currToken.type==tId);
     }
 
-    void __print_res(TreeNode* root){
-        if(root==NULL) return;
-        for(auto tn:root->children){
-            __print_res(tn);
-        }
-        if(root->isleaf){
-            this->ofp << tokenId_str[root->token.type] << " " << root->token.valueStr << endl;
-        }else{
-            this->ofp << "<" << stateId_str[root->stateId] << ">" << endl;
-        }
-    }
-
-    bool judge_is_assign_or_call(string name){ // 函数调用|赋值
+    /* 函数调用|赋值 */
+    bool judge_is_assign_or_call(string name){ 
         bool varFlag = false;
         for(char& ch:name) ch = tolower(ch);
         if(varTableCurrP->find(name)!=varTableCurrP->end() || varStaticTable.find(name)!=varStaticTable.end()){
@@ -1020,6 +1055,7 @@ private:
         return varFlag;
     }
 
+    /* 后序遍历删除语法树 */
     void deleteRoot(TreeNode* root){
         if(root==NULL) return;
         for(auto tn:root->children){
@@ -1028,6 +1064,7 @@ private:
         delete root;
     }
 
+    /* 添加函数到函数表 */
     void addFunction(Function f){
         // funcTable & varStaticTable
         for(char& ch:f.name) ch = tolower(ch);
@@ -1041,6 +1078,7 @@ private:
         returnVid = f.returnType; 
     }
 
+    /* 添加变量到变量表 */
     void addVariable(Variable v){
         // varTableCurrP 只看当前表 (无需比较函数表)
         for(char& ch:v.name) ch = tolower(ch);
@@ -1052,11 +1090,13 @@ private:
         }
     }
 
+    /* 查找函数 */
     Function& getFunction(string name){
         for(char& ch:name) ch = tolower(ch);
         return funcTable[name];
     }
 
+    /* 查找变量 */
     Variable& getVariable(string name){
         // 这里由先后顺序
         for(char& ch:name) ch = tolower(ch);
@@ -1072,4 +1112,35 @@ private:
         }
     }
 
+    void __print_res(TreeNode* root){
+        if(root==NULL) return;
+        for(auto tn:root->children){
+            __print_res(tn);
+        }
+        if(root->isleaf){
+            this->ofp << tokenId_str[root->token.type] << " " << root->token.valueStr << endl;
+        }else{
+            this->ofp << "<" << stateId_str[root->stateId] << ">" << endl;
+        }
+    }
+    
+    void __print_json(TreeNode* root){
+        if(root==NULL) return;
+        // 打印该树的结构
+        this->ofp << "\"name\":" << "\"" << ((root->isleaf)?root->token.valueStr:stateId_str[root->stateId]) << "\"";
+        if(int(root->children.size())!=0){
+            this->ofp << ",\n" << "\"children\":" << "["<<endl;
+        }
+        bool flag = false;
+        for(auto tn:root->children){
+            if(flag) this->ofp << ",";
+            this->ofp << "{"<<endl;
+            __print_json(tn);
+            this->ofp << "\n}";
+            flag = true;
+        }
+        if(int(root->children.size())!=0){
+            this->ofp <<"]"<<endl;
+        }
+    }
 };

@@ -9,9 +9,12 @@ using std::map;
 using std::cout;
 
 enum ErrorID{
+    // OJ涉及的
     illegalLexcial='a', redefined, undefined, funcParamsNumber, funcParamsType, 
     illegalCondition, funcNoReturn, funcWithReturn, arrayIdxError, constChange, 
-    shouldSEMICN, shouldRsmall, shouldRmid, arrayCntError, constType, lackDeafult
+    shouldSEMICN, shouldRsmall, shouldRmid, arrayCntError, constType, lackDeafult,
+    // 自定义的
+    
 };
 
 map<char, string> errorId_str = {

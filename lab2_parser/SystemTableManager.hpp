@@ -11,6 +11,17 @@ enum VartypeID{
     VARPOINTER,
 };
 
+map<VartypeID, string> vartypeId_str = {
+    {VARVOID, "VARVOID" },
+    {VARINT, "VARINT"},
+    {VARINT1D, "VARINT1D"},
+    {VARINT2D, "VARINT2D" },
+    {VARCHAR, "VARCHAR"},
+    {VARCHAR1D, "VARCHAR1D"},
+    {VARCHAR2D, "VARCHAR2D"},
+    {VARPOINTER, "VARPOINTER"},
+};
+
 // 变量
 struct Variable{
     string name="";
@@ -62,6 +73,7 @@ struct Function{
     VartypeID returnType;
     map<string, Variable> varTable;
 };
-// 能否合并Function和Variable
+// 函数表
 map<string, Function> funcTable;
+// 全局变量表
 map<string, Variable> varStaticTable;
