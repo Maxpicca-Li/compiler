@@ -35,8 +35,8 @@ void test(string inFile, string outFile="", string errFile="", string jsonFile="
     GrammarAnalyzer parser(inFile);
     parser.doParser();
     // if(outFile!="") parser.print_res(outFile);
-    // if(errFile!="") ehandler.printError(errFile);
-    if(jsonFile!="") parser.print_json(jsonFile);
+    if(errFile!="") ehandler.printError(errFile);
+    // if(jsonFile!="") parser.print_json(jsonFile);
 }
 
 void testAll(){
