@@ -219,9 +219,16 @@ map<StateID, string> stateId_str = {
     {PROGRAM, "程序"},
 };
 
+enum Flag{
+    VOIDFLAG = 1000,
+    VARFLAG,
+    FUNCFLAG,
+};
 struct Token{
     TokenID type;
     string valueStr;
+    Flag flag=VOIDFLAG; // 非标识符1000+0, 变量 1000+1, 函数 1000+2
+    string regNum="";   // 用于代码生成
     int line, col;
     
     friend ostream& operator << (ostream& out,const Token& t){

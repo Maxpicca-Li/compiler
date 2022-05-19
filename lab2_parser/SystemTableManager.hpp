@@ -42,7 +42,10 @@ struct Variable{
             delete [] valueP;
         }
         if(x.valueP==NULL) this->valueP = NULL;
-        else this->valueP = new char(*x.valueP);
+        else {
+            this->valueP = new char[this->size];
+            memcpy(this->valueP, x.valueP, this->size);
+        }
     }
     
     Variable& operator=(const Variable& x){
@@ -55,7 +58,10 @@ struct Variable{
             delete [] valueP;
         }
         if(x.valueP==NULL) this->valueP = NULL;
-        else this->valueP = new char(*x.valueP);
+        else {
+            this->valueP = new char[this->size];
+            memcpy(this->valueP, x.valueP, this->size);
+        }
         return *this;
     }
 

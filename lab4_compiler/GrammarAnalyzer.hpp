@@ -7,19 +7,6 @@
 #include "SystemTableManager.hpp"
 using namespace std;
 
-class TreeNode{
-public:
-    bool isleaf=false; // choose (isleaf ? token : stateId);
-    StateID stateId; // 表示性质 
-    Token token;
-    vector<TreeNode*> children;
-    
-    TreeNode(){}
-    TreeNode(Token t,bool isleaf=true):isleaf(isleaf),token(t){}
-    TreeNode(StateID stateId,bool isleaf=false):isleaf(isleaf),stateId(stateId){}
-};
-
-class GrammarAnalyzer{
 /* 有关宏定义，懒懒懒 */
 #define NEXTTOKEN lastToken=currToken; currToken=lexer.nextToken()
 #define NEWLEAF new TreeNode(currToken)
@@ -27,9 +14,23 @@ class GrammarAnalyzer{
 #define printExp(exp) cout<<#exp<<"为:\t\t"<<(exp)<<endl
 #define printExpToString(exp) cout<<(string(#exp)+"为:\t\t")<<(exp).toString()<<endl //注意exp加括号更安全
 
+class TreeNode{
+public:
+    bool isleaf=false; // choose (isleaf ? token : stateId);
+    StateID stateId=STATE_NONE; // 表示性质 
+    Token token;
+    VartypeID varType=VARVOID; // 主要是表达式的varType
+    vector<TreeNode*> children;
+    
+    TreeNode(){}
+    TreeNode(Token t,bool isleaf=true):isleaf(isleaf),token(t){}
+    TreeNode(StateID stateId,bool isleaf=false):isleaf(isleaf),stateId(stateId){}
+
+};
+
+class GrammarAnalyzer{
 private:
     LexicalAnalyzer lexer;
-    TreeNode* root = NULL;
     map<string, Variable>* varTableCurrP;
     Token currToken, lastToken;
     ofstream ofp;
@@ -38,11 +39,14 @@ private:
     vector<VartypeID> returnVec;
 
 public:
+    TreeNode* root = NULL;
+    map<string, Function> funcTable;  // 函数表
+    map<string, Variable> varStaticTable; // 全局变量表
+    
+    GrammarAnalyzer(){}
+
     GrammarAnalyzer(string inFile){
-        this->lexer.init(inFile);
-        this->lexer.doLexer();
-        this->varTableCurrP = &varStaticTable;
-        // this->lexer.printAllTokens();
+        init(inFile);
     }
 
     ~GrammarAnalyzer(){
@@ -50,6 +54,15 @@ public:
         varTableCurrP=NULL;
     }
     
+    void init(string inFile){
+        this->lexer.init(inFile);
+        this->lexer.doLexer();
+        this->varStaticTable.clear();
+        this->funcTable.clear();
+        this->varTableCurrP = &varStaticTable;
+        // this->lexer.printAllTokens();
+    }
+
     /* 语法分析，建立语法树的过程 */    
     void doParser(){
         // 输入程序
@@ -96,7 +109,7 @@ private:
                 funcDefine->children.push_back(NEWLEAF); NEXTTOKEN;
                 if(currMatch(MAINTK,0)) {
                     funcDefine->stateId = DEFINE_FUNC_MAIN;
-                }else if(currMatch(IDENFR,0)) { funcDefine->stateId = DEFINE_FUNC_NO; }
+                }else if(currMatch(IDENFR,0)) { currToken.flag=FUNCFLAG;funcDefine->stateId = DEFINE_FUNC_NO; }
                 else{ 
                     ehandler.errorUnkown(currToken,"无法判断为main或函数");
                     return; 
@@ -132,6 +145,7 @@ private:
             tmp->children.push_back(NEWLEAF); NEXTTOKEN;
             // 标识符
             if(!currMatch(IDENFR)) { return; }
+            currToken.flag = FUNCFLAG; // 函数
             f.name = currToken.valueStr;
             tmp->children.push_back(NEWLEAF); NEXTTOKEN;
 
@@ -210,6 +224,7 @@ private:
             }
             if(!currMatch(IDENFR)){ ehandler.errorUnkown(currToken, "缺少命名标识符"); }
             else{
+                currToken.flag = VARFLAG;
                 v.name = currToken.valueStr;
                 args->children.push_back(NEWLEAF); NEXTTOKEN;
             }
@@ -229,6 +244,7 @@ private:
         root->stateId = (f.returnType==VARVOID)?SENTENCE_CALLFUNC:SENTENCE_CALLFUNC_RETURN;
         // 标识符
         if(!currMatch(IDENFR)) return;
+        currToken.flag = FUNCFLAG;
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // (
         if(!currMatch(LSMALL)) return;
@@ -330,6 +346,7 @@ private:
             // 可能是函数，也可能是变量
             if(judge_is_assign_or_call(name)){
                 // 赋值语句
+                currToken.flag = VARFLAG;
                 Variable& v = getVariable(name);
                 if(v.isConst) ehandler.error(currToken,constChange);
                 TreeNode* stAssign = new TreeNode(SENTENCE_ASSIGN);
@@ -337,6 +354,7 @@ private:
                 parser_assign(stAssign,v);
             }else{
                 // 函数调用语句
+                currToken.flag = FUNCFLAG;
                 Function& f = getFunction(name);
                 TreeNode* stCallFunc = new TreeNode();
                 st->children.push_back(stCallFunc);
@@ -505,7 +523,7 @@ private:
             // 表达式
             TreeNode* exp = new TreeNode(EXPRESSION);
             root->children.push_back(exp);
-            parser_expression(exp);
+            parser_expression(exp);;
         }
         // 反括号
         if(!currMatch(RSMALL)) { ehandler.error(currToken, shouldRsmall); }
@@ -523,6 +541,7 @@ private:
         // 标识符 ==> 需要判断变量
         if(!currMatch(IDENFR)) { ehandler.errorUnkown(currToken, "缺少命名标识符"); }
         else{ 
+            currToken.flag = VARFLAG;
             Variable& v = getVariable(currToken.valueStr);
             if(v.isConst) ehandler.error(currToken, constChange);
             root->children.push_back(NEWLEAF); NEXTTOKEN; 
@@ -537,6 +556,7 @@ private:
     void parser_assign(TreeNode* root, Variable& v){
         // 标识符
         if(!currMatch(IDENFR,0)) {return;}
+        currToken.flag = VARFLAG;
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // 赋值解析
         switch (v.varType)
@@ -599,7 +619,8 @@ private:
         else{ root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // 标识符
         if(!currMatch(IDENFR)){ ehandler.errorUnkown(currToken, "缺少命名标识符"); }
-        else { 
+        else {
+            currToken.flag = VARFLAG; 
             getVariable(currToken.valueStr); // 注意识别变量
             root->children.push_back(NEWLEAF); NEXTTOKEN; 
         }
@@ -622,13 +643,13 @@ private:
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // 标识符
         if(!currMatch(IDENFR)){ { ehandler.errorUnkown(currToken, "缺少命名标识符"); } }
-        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        else { currToken.flag = VARFLAG;root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // =
         if(!currMatch(ASSIGN)){ { ehandler.errorUnkown(currToken, "没有匹配到="); } }
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // 标识符
         if(!currMatch(IDENFR)){ { ehandler.errorUnkown(currToken, "缺少命名标识符"); } }
-        else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
+        else { currToken.flag = VARFLAG; root->children.push_back(NEWLEAF); NEXTTOKEN; }
         // +/-
         if(!currMatch(PLUS,0) && !currMatch(MINU,0)){ ehandler.errorUnkown(currToken, "没有匹配到+/-"); }
         else { root->children.push_back(NEWLEAF); NEXTTOKEN; }
@@ -713,6 +734,7 @@ private:
             parser_term(term);
             vid = VARINT;
         }
+        root->varType = vid;
         return vid;
     }
 
@@ -730,6 +752,7 @@ private:
             parser_factor(factor);
             vid = VARINT;
         }
+        root->varType = vid;
         return vid;
     }
 
@@ -757,6 +780,7 @@ private:
         }else if(currMatch(IDENFR,0)){
             string name = currToken.valueStr;
             if(judge_is_assign_or_call(name)){
+                currToken.flag=VARFLAG;
                 Variable& v = getVariable(name);
                 // 标识符
                 root->children.push_back(NEWLEAF); NEXTTOKEN;
@@ -781,6 +805,7 @@ private:
                 if(v.varType==VARINT || v.varType==VARINT1D || v.varType==VARINT2D) return VARINT;
                 else return VARCHAR;
             }else{
+                currToken.flag=FUNCFLAG;
                 Function& f = getFunction(name);
                 // 函数调用
                 TreeNode* node = new TreeNode();
@@ -789,6 +814,7 @@ private:
                 return f.returnType;
             }
         }
+        root->varType = vid;
         return vid;
     }
 
@@ -802,6 +828,7 @@ private:
             v.name = lastToken.valueStr;
         }else if(currMatch(IDENFR,0)){ //     
             v.name = currToken.valueStr;
+            currToken.flag = VARFLAG;
             root->children.push_back(NEWLEAF); NEXTTOKEN;
         }else{
             ehandler.errorUnkown(currToken,"没有匹配到标识符");
@@ -831,12 +858,20 @@ private:
             }
         }else{
             // 普通变量
+            v.size = perSize;
+            v.valueP = new char[v.size];
             if(currMatch(ASSIGN,0)){
                 // 有初始化
                 root->stateId = DEFINE_VAR_INIT;
                 root->children.push_back(NEWLEAF); NEXTTOKEN;
                 // 常量
-                parser_const(root,v.varType);
+                int res = parser_const(root,v.varType);
+                if (v.varType==VARINT){
+                    memcpy(v.valueP, &res,v.size);
+                }else if(v.varType==VARCHAR){
+                    char c = res;
+                    memcpy(v.valueP, &c,v.size);
+                }else assert(false);
             }else{
                 // 无初始化
                 root->stateId = DEFINE_VAR_NO;
@@ -903,6 +938,7 @@ private:
         }
         else ehandler.errorUnkown(currToken,"不合法常量类型");
         if(!currMatch(IDENFR)) { return; }
+        currToken.flag = VARFLAG;
         v.name = currToken.valueStr;
         root->children.push_back(NEWLEAF); NEXTTOKEN;
         // =
@@ -927,10 +963,9 @@ private:
     /* ＜整数＞ ::= ［＋｜－］＜无符号整数＞ */
     int parser_int(TreeNode* root, bool unsign=false){ 
         TreeNode* node2 = new TreeNode(UNSIGNED_INT);
+        TreeNode* node1 = new TreeNode(INT);
         if(!unsign){
-            TreeNode* node1 = new TreeNode(INT);
             root->children.push_back(node1);
-            node1->children.push_back(node2);
         }else{
             root->children.push_back(node2);
         }
@@ -940,9 +975,11 @@ private:
             minus = currMatch(MINU,0);
             // 判断数字是否为正
             if(unsign && minus) {ehandler.error(currToken.line, currToken.col, arrayIdxError);}
-            node2->children.push_back(NEWLEAF); NEXTTOKEN;
+            if(!unsign) {node1->children.push_back(NEWLEAF); NEXTTOKEN;}
+            else {node2->children.push_back(NEWLEAF); NEXTTOKEN;}
         }
         // 数字
+        if(!unsign) node1->children.push_back(node2);
         if(!currMatch(INTCON)){return -1;}
         // 结果
         int res = str2int(currToken.valueStr);
@@ -1052,6 +1089,7 @@ private:
             // 都没有，则新建变量
             varFlag = true;
         }
+        currToken.flag = (varFlag)?VARFLAG:FUNCFLAG;
         return varFlag;
     }
 
@@ -1090,12 +1128,6 @@ private:
         }
     }
 
-    /* 查找函数 */
-    Function& getFunction(string name){
-        for(char& ch:name) ch = tolower(ch);
-        return funcTable[name];
-    }
-
     /* 查找变量 */
     Variable& getVariable(string name){
         // 这里由先后顺序
@@ -1110,6 +1142,12 @@ private:
             varTableCurrP->insert({name, tmp});
             return varTableCurrP->find(name)->second;
         }
+    }
+    
+    /* 查找函数 */
+    Function& getFunction(string name){
+        for(char& ch:name) ch = tolower(ch);
+        return funcTable[name];
     }
 
     void __print_res(TreeNode* root){

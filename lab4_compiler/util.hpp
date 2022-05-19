@@ -13,6 +13,12 @@ int str2int(string s){
     return res;
 }
 
+const string int2str(int i) {
+    char buffer[20];
+    sprintf(buffer,"%d",i);
+    return buffer;
+}
+
 float str2float(string s){
     float res;
     int a = 0, b = 0;

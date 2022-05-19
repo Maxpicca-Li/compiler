@@ -1,9 +1,9 @@
 #include<bits/stdc++.h>
 // #include<io.h> // 验证访问一致性
 #include "info.hpp"
-#include "LexicalAnalyzer.hpp"
-#include "GrammarAnalyzer.hpp"
 #include "ErrorHandler.hpp"
+#include "GrammarAnalyzer.hpp"
+#include "TargetCodeGenerator.hpp"
 using namespace std;
 
 #define SUBMIT 1
@@ -12,6 +12,7 @@ using namespace std;
     const string outFile = "output.txt";
     const string errFile = "error.txt";
     const string jsonFile = "test.json";
+    const string codeFile = "mips.txt";
 #else
     string idx = "1"; 
     // const string inFile = "./edata/" + idx + "/testfile" + idx + ".txt";
@@ -23,20 +24,17 @@ using namespace std;
     const string jsonFile = "tree.json";
 #endif
 
-void init(){
+void test(string inFile, string outFile="", string errFile="", string jsonFile="", string codeFile=""){
     ehandler.init();
-    varStaticTable.clear();
-    funcTable.clear();
-}
-
-void test(string inFile, string outFile="", string errFile="", string jsonFile=""){
-    init();
     cout << inFile << " " << outFile << " " << errFile << endl;
-    GrammarAnalyzer parser(inFile);
-    parser.doParser();
+    // GrammarAnalyzer parser(inFile);
+    // parser.doParser();
     // if(outFile!="") parser.print_res(outFile);
-    if(errFile!="") ehandler.printError(errFile);
+    // if(errFile!="") ehandler.printError(errFile);
     // if(jsonFile!="") parser.print_json(jsonFile);
+    TargetCodeGenerator tcg;
+    tcg.doGenerate(inFile);
+    tcg.printMIPS(codeFile);
 }
 
 void testAll(){
@@ -50,7 +48,7 @@ void testAll(){
             outFile = "./edata/" + to_string(i) + "/goutput" + to_string(j) + ".txt";
             errFile = "./edata/" + to_string(i) + "/eoutput" + to_string(j) + ".txt";
             // if(_access(inFile.c_str(),0)==-1) continue; // 验证能否访问
-            test(inFile, outFile, errFile);
+            // test(inFile, outFile, errFile);
             time_t t = clock();
             printf("testfile%d-%d,used %.f s and pass.\n",i,j,(t-s)*1.0/1000);
             printf("============\n");
@@ -58,8 +56,23 @@ void testAll(){
     }
 }
 
+void getSrcCode(string inFlie,string outFile){
+    ifstream ifp;
+    ofstream ofp;
+    ifp.open(inFile, ios::binary);
+    ofp.open(outFile);
+    char ch;
+    while(!ifp.eof()){
+        ifp.read((char*)&ch,1);
+        ofp << ch;
+    }
+    ifp.close();
+    ofp.close();
+}
+
 int main(){ 
     // testAll();
-    test(inFile, outFile, errFile, jsonFile);
+    test(inFile, outFile, errFile, jsonFile,codeFile);
+    // getSrcCode(inFile, codeFile);
     return 0;
 }
