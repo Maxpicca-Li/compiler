@@ -6,6 +6,7 @@
 #include "info.hpp"
 #include "SystemTableManager.hpp"
 
+#define USEGP 1
 #define PUTINT  quads.emplace_back("li","1","","$v0"); quads.emplace_back("syscall");
 #define PUTSTR  quads.emplace_back("li","4","","$v0"); quads.emplace_back("syscall");
 #define PUTCHAR quads.emplace_back("li","11","","$v0"); quads.emplace_back("syscall");
@@ -67,8 +68,10 @@ class TargetCodeGenerator{
 private:
     vector<Data> datas;
     vector<Quad> quads;
+    map<string,int> info_num; // 变量空间->变量编号
     ofstream ofp;
-    int strcount = 0;
+    int varCount = 0;
+    int strCount = 0;
 
 public:
     GrammarAnalyzer parser;
@@ -77,8 +80,10 @@ public:
     void doGenerate(string inFile){
         this->parser.init(inFile);
         this->parser.doParser();
-        // data段
-        // 遍历全局变量
+        
+        #ifdef USEGP  // 方法一：gloabl point
+        _addDataGp();
+        #else         // 方法二：data段
         for(auto p:this->parser.varStaticTable){
             Variable& var = p.second;
             _addData(var);
@@ -90,8 +95,8 @@ public:
                 _addData(var);
             }
         }
-        // text段
-        // 自顶向下获取text
+        #endif
+        // text段 自顶向下获取text
         _generate(this->parser.root, 0);
     }
 
@@ -105,6 +110,41 @@ public:
 
 
 private:
+    
+    void _addDataGp(){
+        for(auto p:this->parser.varStaticTable){
+            Variable& var = p.second;
+            info_num[var.name] = varCount;
+            _addDataGp_help(var, varCount);
+            varCount+=4;
+        }
+        for(auto f:this->parser.funcTable){
+            for(auto p:f.second.varTable){
+                Variable& var = p.second;
+                info_num[f.second.name+ "-" + var.name] = varCount;
+                _addDataGp_help(var, varCount);
+                varCount+=4;
+            }
+        }
+    }
+
+    void _addDataGp_help(Variable& var,int cnt,int reg_t=0){
+        string type,value;
+        if (var.varType==VARINT){
+            type= ".word";
+            int t;
+            memcpy(&t, var.valueP, var.size);
+            value = to_string(t);
+        }else if(var.varType==VARCHAR){
+            type= ".byte";
+            char t;
+            memcpy(&t, var.valueP, var.size);
+            value = to_string(int(t));
+        }
+        quads.emplace_back("addiu","$0",value,REGT);
+        quads.emplace_back("sw",REGT,"",to_string(cnt)+"($gp)");
+    }
+
     void _addData(Variable& var){
         string type,value;
         if (var.varType==VARINT){
@@ -140,9 +180,12 @@ private:
                 cout << varType;
                 assert(false);
             }
-            // 将数据地址放到t0
+            #ifdef USEGP
+            quads.emplace_back("sw","$v0","",to_string(_getVarCount(name))+"($gp)");
+            #else  // 将数据地址放到t0
             quads.emplace_back("la",name,"",REGT);  // 取址
             quads.emplace_back("sw","$v0","","0($t"+to_string(reg_t)+")"); // 寄存器地址赋值
+            #endif
         }else if(!root->isleaf && root->stateId==SENTENCE_WRITE){ // 写语句
             for(auto node:root->children){
                 if(node->stateId == STRING){
@@ -159,18 +202,22 @@ private:
             }
             PUTCRLF;
         }else if(!root->isleaf && root->stateId==SENTENCE_ASSIGN){ // 赋值语句
-            string varName;
+            string name;
             for(auto node:root->children){
                 Token& tk = node->token;
                 if(node->isleaf && tk.type==IDENFR){ // 获取标识符
-                    varName = _getLower(tk.valueStr);
+                    name = _getLower(tk.valueStr);
                 }else if(!node->isleaf && node->stateId==EXPRESSION){
                     // 获取表达式的值，放到reg_t+1
                     _generate(node,reg_t+1);
                 }
             }
-            quads.emplace_back("la",varName,"",REGT); // 取址
+            #ifdef USEGP
+            quads.emplace_back("sw",REGT1,"",to_string(_getVarCount(name))+"($gp)");
+            #else
+            quads.emplace_back("la",name,"",REGT); // 取址
             quads.emplace_back("sw",REGT1,"","0($t"+to_string(reg_t)+")");  // 寄存器地址赋值
+            #endif
         }else if(!root->isleaf && root->stateId==EXPRESSION){ // 表达式
             // TODO: 表达式的构造这里，才意识到应该要建立抽象语义树ast（二叉树）的，后续遍历好像就可以了
             // TODO: emmm，语义分析，中间代码，目标代码都没学好。。。
@@ -232,15 +279,18 @@ private:
             // 可能是函数，也可能是变量
             if(root->token.flag==VARFLAG){
                 string name = _getLower(root->token.valueStr);
-                // token_name
+                #ifdef USEGP
+                quads.emplace_back("lw",to_string(_getVarCount(name))+"($gp)", "",REGT);
+                #else
                 quads.emplace_back("la",name,"",REGT1);  // 取址
                 quads.emplace_back("lw","0($t"+to_string(reg_t+1)+")","",REGT); // 寄存器地址赋值
+                #endif
             }
         }else if(root->token.type==INTCON || root->token.type==CHARCON){
             quads.emplace_back("addiu","$0",root->token.valueStr,REGT);
         }else if(root->token.type==STRCON){
-            string name = "str"+to_string(strcount);
-            strcount++;
+            string name = "str"+to_string(strCount);
+            strCount++;
             datas.emplace_back(name, DSTR,root->token.valueStr); // 记录变量
             quads.emplace_back("la",name,"","$a0");  // 传址传参
         }else if(root->stateId==INT){
@@ -284,6 +334,21 @@ private:
         string _name = name;
         for(char& ch:_name) ch = tolower(ch);
         return _name;
+    }
+
+    int _getVarCount(string name){
+        for(char& ch:name) ch = tolower(ch);
+        for (auto f:this->parser.funcTable){
+            if(f.second.varTable.find(name)!=f.second.varTable.end()){
+                return info_num[f.first+"-"+f.second.varTable[name].name];
+            }
+        }
+        for(auto p:this->parser.varStaticTable){
+            if(this->parser.varStaticTable.find(name)!=this->parser.varStaticTable.end()){
+                return info_num[this->parser.varStaticTable[name].name];
+            }
+        }
+        return 0;
     }
 
     VartypeID _getVarType(string name){
